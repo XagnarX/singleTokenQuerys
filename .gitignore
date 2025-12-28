@@ -1,0 +1,42 @@
+# Node
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build output
+build/
+
+# Env files
+.env*
+
+# Others
+coverage/
+
+# Local
+local.env
+
+/cypress/videos/
+/cypress/screenshots/
+/dist/
+
+*.tsbuildinfo

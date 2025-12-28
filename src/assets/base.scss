@@ -1,0 +1,8 @@
+$marginStep: 2;
+@for $i from 1 through 10 {
+  $value: 10 + $i * $marginStep;
+  .mr-#{$value} { margin-right: #{$value}px; }
+  .ml-#{$value} { margin-left: #{$value}px; }
+  .mt-#{$value} { margin-top: #{$value}px; }
+  .mb-#{$value} { margin-bottom: #{$value}px; }
+}
