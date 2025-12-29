@@ -14,8 +14,7 @@ const SERVERS = {
 // ============================================
 // CHANGE THIS LINE TO SWITCH SERVERS
 // ============================================
-export const baseURL = SERVERS.localhost
-// export const baseURL = SERVERS.apiLocal
+export const baseURL = SERVERS.apiLocal
 // export const baseURL = SERVERS.remote
 // ============================================
 
