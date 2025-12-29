@@ -1,9 +1,0 @@
-@use "./base.scss";
-
-html, body, #app {
-  background: var(--color-bg-1, #232324) !important;
-  color: var(--color-text-1, #fff);
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-}
