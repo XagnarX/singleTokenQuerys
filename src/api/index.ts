@@ -8,7 +8,10 @@ const request = axios.create({
 })
 
 request.interceptors.request.use((config) => config, (error) => Promise.reject(error))
-request.interceptors.response.use((response) => response.data, async (error) => { console.error('API Error:', error) })
+request.interceptors.response.use((response) => response.data, async (error) => {
+  console.error('API Error:', error)
+  return Promise.reject(error)
+})
 
 export default request
 
