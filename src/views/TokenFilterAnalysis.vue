@@ -10,12 +10,62 @@
       </a-form-item>
     </a-form>
 
+    <!-- The New Feature: Block Stepping -->
+    <a-card class="stepping-card" title="Block Stepping (The New Feature)">
+      <a-space>
+        <a-input-number v-model="stepSize" :min="1" placeholder="Step Size" style="width: 150px;">
+          <template #prefix>Step Size</template>
+        </a-input-number>
+        <a-button type="secondary" @click="prevStep">
+          <template #icon><icon-left /></template> Prev Step
+        </a-button>
+        <a-button type="primary" @click="nextStep">
+          Next Step <template #icon><icon-right /></template>
+        </a-button>
+      </a-space>
+    </a-card>
+
+    <!-- The New Feature: History Log -->
+    <a-card class="history-card" title="Query History (The New Feature)" v-if="historyRecords.length > 0">
+      <template #extra>
+        <a-button type="text" status="danger" size="small" @click="clearHistory">Clear History</a-button>
+      </template>
+      <a-table :data="historyRecords" :pagination="{ pageSize: 5 }" size="small" :bordered="false">
+        <template #columns>
+          <a-table-column title="Time" data-index="time" :width="160" />
+          <a-table-column title="Range" data-index="range" />
+          <a-table-column title="Buy (Count / Amount)" :width="180">
+            <template #cell="{ record }">
+               <div>Count: {{ record.buyCount }}</div>
+               <div>Amt: {{ record.buyTotal }}</div>
+            </template>
+          </a-table-column>
+          <a-table-column title="Sell (Count / Amount)" :width="180">
+            <template #cell="{ record }">
+               <div>Count: {{ record.sellCount }}</div>
+               <div>Amt: {{ record.sellTotal }}</div>
+            </template>
+          </a-table-column>
+          <a-table-column title="Net Flow" data-index="netFlow">
+            <template #cell="{ record }">
+              <span :style="{ color: record.netAmount >= 0 ? '#00b42a' : '#f53f3f' }">{{ record.netFlow }}</span>
+            </template>
+          </a-table-column>
+          <a-table-column title="Action" :width="80">
+            <template #cell="{ record }">
+               <a-button type="text" status="danger" size="mini" @click="removeHistory(record.id)"><icon-delete /></a-button>
+            </template>
+          </a-table-column>
+        </template>
+      </a-table>
+    </a-card>
+
     <a-form layout="inline" :model="searchParams" class="filter-form">
       <a-form-item label="Start Block">
-        <a-input-number v-model="searchParams.startBlock" placeholder="Start block" :min="0" style="width: 140px;" />
+        <a-input-number v-model="searchParams.startBlock" placeholder="Start block" :min="0" style="width: 140px;" @change="hasStartedPolling = false" />
       </a-form-item>
       <a-form-item label="End Block">
-        <a-input-number v-model="searchParams.endBlock" placeholder="End block" :min="0" style="width: 140px;" />
+        <a-input-number v-model="searchParams.endBlock" placeholder="End block" :min="0" style="width: 140px;" @change="hasStartedPolling = false" />
       </a-form-item>
       <a-form-item label="Min Amount">
         <a-input-number v-model="searchParams.minAmount" placeholder="Min amount" :min="0" style="width: 140px;" />
@@ -31,6 +81,9 @@
       </a-form-item>
       <a-form-item label="Refresh(s)">
         <a-input-number v-model="refreshInterval" :min="5" placeholder="Refresh interval" style="width: 100px;" />
+      </a-form-item>
+      <a-form-item>
+        <a-checkbox v-model="isAutoStep">Auto Increase</a-checkbox>
       </a-form-item>
       <a-form-item>
         <a-button type="primary" @click="togglePolling">{{ getPollingButtonText() }}</a-button>
@@ -213,7 +266,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { IconCopy, IconPlus, IconDelete, IconTag, IconEye } from '@arco-design/web-vue/es/icon'
+import { IconCopy, IconPlus, IconDelete, IconTag, IconEye, IconLeft, IconRight } from '@arco-design/web-vue/es/icon'
 import { getTokenFilterAnalysisAggregate, getAddressTags, addAddressTag, deleteAddressTag, getUniqueAddressTags } from '@/api/index'
 import { copyToClipboard } from '@/utils/clipboard'
 import dayjs from 'dayjs'
@@ -231,6 +284,66 @@ const searchParams = ref({
   decimals: 18,
   limit: 100,
 })
+
+const stepSize = ref(100)
+interface HistoryRecord { id: number; time: string; range: string; buyTotal: string; sellTotal: string; buyCount: number; sellCount: number; netFlow: string; netAmount: number }
+const historyRecords = ref<HistoryRecord[]>([])
+
+const nextStep = () => {
+  const currentEnd = Number(searchParams.value.endBlock)
+  const step = Number(stepSize.value)
+  
+  if (!isNaN(currentEnd) && !isNaN(step)) {
+    const newStart = currentEnd
+    const newEnd = currentEnd + step
+    searchParams.value.startBlock = newStart
+    searchParams.value.endBlock = newEnd
+    fetchAllData()
+  } else {
+    Message.warning('Please ensure End Block and Step Size are valid numbers')
+  }
+}
+
+const prevStep = () => {
+  const currentStart = Number(searchParams.value.startBlock)
+  const step = Number(stepSize.value)
+  
+  if (!isNaN(currentStart) && !isNaN(step)) {
+    const newEnd = currentStart
+    const newStartVal = Math.max(0, currentStart - step)
+    searchParams.value.startBlock = newStartVal
+    searchParams.value.endBlock = newEnd
+    fetchAllData()
+  } else {
+    Message.warning('Please ensure Start Block and Step Size are valid numbers')
+  }
+}
+
+const addToHistory = () => {
+  const now = dayjs().format('HH:mm:ss')
+  const range = (searchParams.value.startBlock || 'Beginning') + ' - ' + (searchParams.value.endBlock || 'Latest')
+  const buyCount = buyAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+  const sellCount = sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+  historyRecords.value.unshift({
+    id: Date.now(),
+    time: now,
+    range: range,
+    buyTotal: buyTotalAmount.value,
+    sellTotal: sellTotalAmount.value,
+    buyCount: buyCount,
+    sellCount: sellCount,
+    netFlow: netAmountDisplay.value,
+    netAmount: netAmount.value
+  })
+}
+
+const removeHistory = (id: number) => {
+  historyRecords.value = historyRecords.value.filter(r => r.id !== id)
+}
+
+const clearHistory = () => {
+  historyRecords.value = []
+}
 
 const currentView = ref<string>('all')
 const transactions = ref<any[]>([])
@@ -270,12 +383,45 @@ const formatAmount = (val: string | number) => {
 const getPollingButtonText = () => isPolling.value ? 'Stop Polling' : 'Start Polling'
 const togglePolling = () => isPolling.value ? stopPolling() : startPolling()
 
+const isAutoStep = ref(true)
+const hasStartedPolling = ref(false)
+
+const executeAutoStep = () => {
+  if (!isAutoStep.value) {
+    fetchAllData()
+    return
+  }
+
+  const currentEnd = Number(searchParams.value.endBlock)
+  const step = Number(stepSize.value)
+  
+  if (!isNaN(currentEnd) && !isNaN(step)) {
+    const newStart = currentEnd
+    const newEndVal = currentEnd + step
+    searchParams.value.startBlock = newStart
+    searchParams.value.endBlock = newEndVal
+    fetchAllData()
+  } else {
+    fetchAllData()
+  }
+}
+
 const startPolling = () => {
   if (isPolling.value) return
   isPolling.value = true
-  fetchAllData()
-  updateDisplayedData()
-  timer = setInterval(() => { fetchAllData(); updateDisplayedData(); }, (refreshInterval.value || 60) * 1000)
+  
+  if (!hasStartedPolling.value) {
+     // First request of the session: Search CURRENT range only.
+     fetchAllData()
+     hasStartedPolling.value = true
+  } else {
+      // Restarting: Immediately execute next step (resume flow)
+      executeAutoStep()
+  }
+  
+  timer = setInterval(() => {
+    executeAutoStep()
+  }, (refreshInterval.value || 60) * 1000)
 }
 
 const stopPolling = () => {
@@ -320,6 +466,7 @@ const fetchAllData = async () => {
     if (data.sellGroups) data.sellGroups.forEach((g: any, i: number) => { if (sellAddresses.value[i]) sellAddresses.value[i].data = (g.transactions || []).map((t: any) => ({ ...t, amount: String(t.amount_decimal || t.amount || '0') })) })
     updateTotalAmounts()
     updateDisplayedData()
+    addToHistory()
     Message.success('Query completed')
   } catch (e: any) { Message.error('Query failed: ' + (e?.message || 'Unknown error')) }
 }
@@ -496,6 +643,8 @@ onUnmounted(() => { if (timer) { clearInterval(timer); timer = null } })
 .token-filter-analysis { padding: 20px; max-width: 1600px; margin: 0 auto; }
 .page-header { margin-bottom: 20px; h1 { font-size: 24px; font-weight: 600; color: var(--color-text-1, #fff); margin: 0; } }
 .search-form { margin-bottom: 16px; padding: 16px; background: var(--color-bg-2, #2a2a2b); border-radius: 4px; }
+.stepping-card { margin-bottom: 16px; :deep(.arco-card-header) { border-bottom: 1px solid var(--color-border, #2a2a2b); } }
+.history-card { margin-bottom: 16px; :deep(.arco-card-header) { border-bottom: 1px solid var(--color-border, #2a2a2b); } }
 .filter-form { margin-bottom: 12px; padding: 12px 16px; background: var(--color-bg-2, #2a2a2b); border-radius: 4px; }
 .action-bar { margin: 12px 0; }
 .address-card { margin-bottom: 16px; :deep(.arco-card-header) { border-bottom: 1px solid var(--color-border, #2a2a2b); } }
