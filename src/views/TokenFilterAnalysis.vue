@@ -1,36 +1,36 @@
 <template>
   <div class="token-filter-analysis">
     <div class="page-header">
-      <h1>Token Filter Analysis</h1>
+      <h1>Token筛选分析</h1>
     </div>
 
     <a-form layout="inline" :model="searchParams" class="search-form">
-      <a-form-item label="Contract Address" required>
-        <a-input v-model="searchParams.contractAddress" placeholder="Enter token contract address" style="width: 420px;" allow-clear />
+      <a-form-item label="合约地址" required>
+        <a-input v-model="searchParams.contractAddress" placeholder="输入Token合约地址" style="width: 420px;" allow-clear />
       </a-form-item>
     </a-form>
 
     <a-form layout="inline" :model="searchParams" class="filter-form">
-      <a-form-item label="Start Block">
-        <a-input-number v-model="searchParams.startBlock" placeholder="Start block" :min="0" style="width: 140px;" />
+      <a-form-item label="起始区块">
+        <a-input-number v-model="searchParams.startBlock" placeholder="起始区块号" :min="0" style="width: 140px;" />
       </a-form-item>
-      <a-form-item label="End Block">
-        <a-input-number v-model="searchParams.endBlock" placeholder="End block" :min="0" style="width: 140px;" />
+      <a-form-item label="终止区块">
+        <a-input-number v-model="searchParams.endBlock" placeholder="终止区块号" :min="0" style="width: 140px;" />
       </a-form-item>
-      <a-form-item label="Min Amount">
-        <a-input-number v-model="searchParams.minAmount" placeholder="Min amount" :min="0" style="width: 140px;" />
+      <a-form-item label="最小金额">
+        <a-input-number v-model="searchParams.minAmount" placeholder="最小金额" :min="0" style="width: 140px;" />
       </a-form-item>
-      <a-form-item label="Max Amount">
-        <a-input-number v-model="searchParams.maxAmount" placeholder="Max amount" :min="0" style="width: 140px;" />
+      <a-form-item label="最大金额">
+        <a-input-number v-model="searchParams.maxAmount" placeholder="最大金额" :min="0" style="width: 140px;" />
       </a-form-item>
-      <a-form-item label="Decimals">
-        <a-input-number v-model="searchParams.decimals" :min="0" :max="36" placeholder="Decimals" style="width: 100px;" />
+      <a-form-item label="decimals">
+        <a-input-number v-model="searchParams.decimals" :min="0" :max="36" placeholder="精度" style="width: 100px;" />
       </a-form-item>
-      <a-form-item label="Limit">
-        <a-input-number v-model="searchParams.limit" :min="1" placeholder="Limit" style="width: 100px;" />
+      <a-form-item label="显示条数">
+        <a-input-number v-model="searchParams.limit" :min="1" placeholder="显示条数" style="width: 100px;" />
       </a-form-item>
-      <a-form-item label="Refresh(s)">
-        <a-input-number v-model="refreshInterval" :min="5" placeholder="Refresh interval" style="width: 100px;" />
+      <a-form-item label="刷新时间(秒)">
+        <a-input-number v-model="refreshInterval" :min="1" placeholder="刷新间隔" style="width: 100px;" />
       </a-form-item>
       <a-form-item>
         <a-button type="primary" @click="togglePolling">{{ getPollingButtonText() }}</a-button>
@@ -38,55 +38,55 @@
     </a-form>
 
     <a-space class="action-bar">
-      <a-button :type="currentView === 'all' ? 'primary' : 'secondary'" size="small" @click="viewAllData">View All Data</a-button>
+      <a-button :type="currentView === 'all' ? 'primary' : 'secondary'" size="small" @click="viewAllData">查看全部数据</a-button>
     </a-space>
 
     <a-card class="address-card">
-      <template #title>Buy Address Filter</template>
+      <template #title>买入地址筛选</template>
       <template #extra>
         <a-space>
-          <a-tag color="green" size="large">Buy Total: {{ buyTotalAmount }}</a-tag>
-          <a-button type="primary" size="small" @click="fetchAllBuyAddresses">Query All Buy</a-button>
+          <a-tag color="green" size="large">买入总量 (正): {{ buyTotalAmount }} +数量</a-tag>
+          <a-button type="primary" size="small" @click="fetchAllBuyAddresses">查询全部买入</a-button>
         </a-space>
       </template>
       <a-space direction="vertical" style="width: 100%;">
         <div v-for="(pair, index) in buyAddresses" :key="'buy-' + index" class="address-row">
-          <a-input v-model="pair.from" placeholder="FROM address" class="address-input" />
-          <a-input v-model="pair.to" placeholder="TO address" class="address-input" />
+          <a-input v-model="pair.from" placeholder="FROM地址" class="address-input" />
+          <a-input v-model="pair.to" placeholder="TO地址" class="address-input" />
           <a-button @click="viewRowData('buy', index)" :type="currentView === 'buy-' + index ? 'primary' : 'secondary'" size="small">
             {{ pair.loading ? 'Loading...' : 'Query & View' }}
           </a-button>
-          <a-button v-if="buyAddresses.length > 1" @click="removeBuyAddress(index)" status="danger" size="small">Remove</a-button>
+          <a-button v-if="buyAddresses.length > 1" @click="removeBuyAddress(index)" status="danger" size="small">删除</a-button>
         </div>
-        <a-button @click="addBuyAddress" type="dashed" block><icon-plus /> Add Buy Address</a-button>
+        <a-button @click="addBuyAddress" type="dashed" block><icon-plus /> 添加买入地址</a-button>
       </a-space>
     </a-card>
 
     <a-card class="address-card">
-      <template #title>Sell Address Filter</template>
+      <template #title>卖出地址筛选</template>
       <template #extra>
         <a-space>
-          <a-tag color="red" size="large">Sell Total: {{ sellTotalAmount }}</a-tag>
-          <a-button type="primary" size="small" @click="fetchAllSellAddresses">Query All Sell</a-button>
+          <a-tag color="red" size="large">卖出总量 (负): {{ sellTotalAmount }} -数量</a-tag>
+          <a-button type="primary" size="small" @click="fetchAllSellAddresses">查询全部卖出</a-button>
         </a-space>
       </template>
       <a-space direction="vertical" style="width: 100%;">
         <div v-for="(pair, index) in sellAddresses" :key="'sell-' + index" class="address-row">
-          <a-input v-model="pair.from" placeholder="FROM address" class="address-input" />
-          <a-input v-model="pair.to" placeholder="TO address" class="address-input" />
+          <a-input v-model="pair.from" placeholder="FROM地址" class="address-input" />
+          <a-input v-model="pair.to" placeholder="TO地址" class="address-input" />
           <a-button @click="viewRowData('sell', index)" :type="currentView === 'sell-' + index ? 'primary' : 'secondary'" size="small">
             {{ pair.loading ? 'Loading...' : 'Query & View' }}
           </a-button>
-          <a-button v-if="sellAddresses.length > 1" @click="removeSellAddress(index)" status="danger" size="small">Remove</a-button>
+          <a-button v-if="sellAddresses.length > 1" @click="removeSellAddress(index)" status="danger" size="small">删除</a-button>
         </div>
-        <a-button @click="addSellAddress" type="dashed" block><icon-plus /> Add Sell Address</a-button>
+        <a-button @click="addSellAddress" type="dashed" block><icon-plus /> 添加卖出地址</a-button>
       </a-space>
     </a-card>
 
     <a-card class="summary-card">
       <a-descriptions :column="1" size="small">
-        <a-descriptions-item label="Net Flow">
-          <a-tag :color="netAmount >= 0 ? 'green' : 'red'" size="large">{{ netAmount >= 0 ? '+' : '' }}{{ netAmountDisplay }} - Total</a-tag>
+        <a-descriptions-item label="净流入/流出">
+          <a-tag :color="netAmount >= 0 ? 'green' : 'red'" size="large">{{ netAmount >= 0 ? '+' : '' }}{{ netAmountDisplay }} - 总计</a-tag>
         </a-descriptions-item>
       </a-descriptions>
     </a-card>
@@ -129,22 +129,22 @@
       </template>
     </a-table>
 
-    <a-modal v-model:visible="tagModalVisible" title="Address Tag Management" width="800px" @ok="handleTagModalOk" @cancel="handleTagModalCancel">
-      <div style="margin-bottom: 16px;"><strong>Address: </strong> {{ currentAddress }}</div>
+    <a-modal v-model:visible="tagModalVisible" title="地址标签管理" width="800px" @ok="handleTagModalOk" @cancel="handleTagModalCancel">
+      <div style="margin-bottom: 16px;"><strong>地址：</strong> {{ currentAddress }}</div>
       <div style="margin-bottom: 16px;">
-        <strong>Add Tag: </strong>
+        <strong>添加标签：</strong>
         <a-form :model="tagForm" layout="vertical" style="margin-top: 8px;">
-          <a-form-item label="Tag Name">
-            <a-auto-complete v-model="tagForm.tag" :data="uniqueTags" placeholder="Enter tag name" allow-clear />
+          <a-form-item label="标签名">
+            <a-auto-complete v-model="tagForm.tag" :data="uniqueTags" placeholder="输入标签名" allow-clear />
           </a-form-item>
-          <a-form-item label="Description">
-            <a-textarea v-model="tagForm.description" placeholder="Enter tag description (optional)" :rows="2" />
+          <a-form-item label="描述">
+            <a-textarea v-model="tagForm.description" placeholder="输入标签描述（可选）" :rows="2" />
           </a-form-item>
-          <a-form-item><a-button type="primary" @click="addTag" :loading="tagLoading">Add Tag</a-button></a-form-item>
+          <a-form-item><a-button type="primary" @click="addTag" :loading="tagLoading">添加标签</a-button></a-form-item>
         </a-form>
       </div>
       <div>
-        <strong>Existing Tags: </strong>
+        <strong>已有标签：</strong>
         <div style="margin-top: 8px;">
           <template v-if="currentAddressTags.length > 0">
             <div v-for="tag in currentAddressTags" :key="tag.tag" class="tag-item">
@@ -155,36 +155,36 @@
               <a-button type="text" status="danger" size="mini" @click="removeTag(tag)"><icon-delete /></a-button>
             </div>
           </template>
-          <template v-else><a-empty description="No tags" /></template>
+          <template v-else><a-empty description="暂无标签" /></template>
         </div>
       </div>
     </a-modal>
 
-    <a-modal v-model:visible="detailModalVisible" title="Record Detail" width="1000px" @ok="handleDetailModalOk" @cancel="handleDetailModalCancel">
+    <a-modal v-model:visible="detailModalVisible" title="记录详情" width="1000px" @ok="handleDetailModalOk" @cancel="handleDetailModalCancel">
       <div v-if="currentDetailRecord">
         <a-descriptions :column="2" size="small" style="margin-bottom: 20px;">
-          <a-descriptions-item label="Block Number">{{ currentDetailRecord.block_number }}</a-descriptions-item>
-          <a-descriptions-item label="Transaction Type">
-            <a-tag :color="currentDetailRecord.type === 'buy' ? 'green' : 'red'">{{ currentDetailRecord.type === 'buy' ? 'Buy' : 'Sell' }}</a-tag>
+          <a-descriptions-item label="区块号">{{ currentDetailRecord.block_number }}</a-descriptions-item>
+          <a-descriptions-item label="交易类型">
+            <a-tag :color="currentDetailRecord.type === 'buy' ? 'green' : 'red'">{{ currentDetailRecord.type === 'buy' ? '买入' : '卖出' }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="From Address">
+          <a-descriptions-item label="From地址">
             <a-link :href="'https://bscscan.com/address/' + currentDetailRecord.from_address" target="_blank">{{ currentDetailRecord.from_address }}</a-link>
           </a-descriptions-item>
-          <a-descriptions-item label="To Address">
+          <a-descriptions-item label="To地址">
             <a-link :href="'https://bscscan.com/address/' + currentDetailRecord.to_address" target="_blank">{{ currentDetailRecord.to_address }}</a-link>
           </a-descriptions-item>
-          <a-descriptions-item label="Token Contract">
+          <a-descriptions-item label="代币合约">
             <a-link :href="'https://bscscan.com/token/' + currentDetailRecord.contract_address" target="_blank">{{ currentDetailRecord.contract_address }}</a-link>
           </a-descriptions-item>
-          <a-descriptions-item label="Amount">
+          <a-descriptions-item label="数量">
             <a-tag :color="currentDetailRecord.type === 'buy' ? 'green' : 'red'">{{ formatAmount(currentDetailRecord.amount) }}</a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="Tx Hash">
+          <a-descriptions-item label="交易哈希">
             <a-link :href="'https://bscscan.com/tx/' + currentDetailRecord.tx_hash" target="_blank">{{ currentDetailRecord.tx_hash }}</a-link>
           </a-descriptions-item>
-          <a-descriptions-item label="Time">{{ formatTime(currentDetailRecord.timestamp) }}</a-descriptions-item>
+          <a-descriptions-item label="时间">{{ formatTime(currentDetailRecord.timestamp) }}</a-descriptions-item>
         </a-descriptions>
-        <a-divider>Similar Records</a-divider>
+        <a-divider>相似记录</a-divider>
         <div v-if="similarRecords.length > 0">
           <a-table :columns="detailColumns" :data="similarRecords" :pagination="{ pageSize: 10 }" row-key="tx_hash" size="small">
             <template #tx_hash="{ record }">
@@ -204,21 +204,31 @@
             </template>
           </a-table>
         </div>
-        <a-empty v-else description="No similar records" />
+        <a-empty v-else description="暂无相似记录" />
       </div>
     </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, watch, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Message } from '@arco-design/web-vue'
 import { IconCopy, IconPlus, IconDelete, IconTag, IconEye } from '@arco-design/web-vue/es/icon'
 import { getTokenFilterAnalysisAggregate, getAddressTags, addAddressTag, deleteAddressTag, getUniqueAddressTags } from '@/api/index'
 import { copyToClipboard } from '@/utils/clipboard'
 import dayjs from 'dayjs'
 
-interface AddressPair { from: string; to: string; data?: any[]; loading?: boolean }
+const route = useRoute()
+const router = useRouter()
+
+interface AddressPair {
+  from: string
+  to: string
+  data?: any[]
+  loading?: boolean
+}
+
 const buyAddresses = ref<AddressPair[]>([{ from: '', to: '', data: [], loading: false }])
 const sellAddresses = ref<AddressPair[]>([{ from: '', to: '', data: [], loading: false }])
 
@@ -232,6 +242,188 @@ const searchParams = ref({
   limit: 100,
 })
 
+// Initialize searchParams from URL
+const initializeFromUrl = () => {
+  const query = route.query
+  if (query.contractAddress) searchParams.value.contractAddress = String(query.contractAddress)
+  if (query.startBlock) searchParams.value.startBlock = parseInt(String(query.startBlock))
+  if (query.endBlock) searchParams.value.endBlock = parseInt(String(query.endBlock))
+  if (query.minAmount) searchParams.value.minAmount = parseFloat(String(query.minAmount))
+  if (query.maxAmount) searchParams.value.maxAmount = parseFloat(String(query.maxAmount))
+  if (query.decimals) searchParams.value.decimals = parseInt(String(query.decimals)) || 18
+  if (query.limit) searchParams.value.limit = parseInt(String(query.limit)) || 100
+
+  // Initialize buy addresses
+  if (query.buyPairs) {
+    try {
+      const buyPairsStr = String(query.buyPairs)
+      const buyPairsArray = JSON.parse(decodeURIComponent(buyPairsStr))
+      if (Array.isArray(buyPairsArray) && buyPairsArray.length > 0) {
+        buyAddresses.value = buyPairsArray.map(pair => ({
+          from: pair.from || '',
+          to: pair.to || '',
+          data: []
+        }))
+      }
+    } catch (e) {
+      console.error('Parse buy address failed:', e)
+    }
+  }
+
+  // Initialize sell addresses
+  if (query.sellPairs) {
+    try {
+      const sellPairsStr = String(query.sellPairs)
+      const sellPairsArray = JSON.parse(decodeURIComponent(sellPairsStr))
+      if (Array.isArray(sellPairsArray) && sellPairsArray.length > 0) {
+        sellAddresses.value = sellPairsArray.map(pair => ({
+          from: pair.from || '',
+          to: pair.to || '',
+          data: []
+        }))
+      }
+    } catch (e) {
+      console.error('Parse sell address failed:', e)
+    }
+  }
+}
+
+// Watch searchParams and update URL
+let isUpdatingFromUrl = false
+watch(searchParams, (newValue) => {
+  if (isUpdatingFromUrl) return
+
+  const query: Record<string, any> = {}
+  if (newValue.contractAddress) query.contractAddress = newValue.contractAddress
+
+  if (newValue.startBlock !== null && newValue.startBlock !== undefined) {
+    const startBlockStr = String(newValue.startBlock)
+    if (startBlockStr !== '') {
+      const startBlockNum = Number(startBlockStr)
+      if (!isNaN(startBlockNum)) query.startBlock = startBlockNum
+    }
+  }
+  if (newValue.endBlock !== null && newValue.endBlock !== undefined) {
+    const endBlockStr = String(newValue.endBlock)
+    if (endBlockStr !== '') {
+      const endBlockNum = Number(endBlockStr)
+      if (!isNaN(endBlockNum)) query.endBlock = endBlockNum
+    }
+  }
+
+  if (newValue.minAmount !== null && newValue.minAmount !== undefined) {
+    const minAmountStr = String(newValue.minAmount)
+    if (minAmountStr !== '') {
+      const minAmountNum = Number(minAmountStr)
+      if (!isNaN(minAmountNum)) query.minAmount = minAmountNum
+    }
+  }
+  if (newValue.maxAmount !== null && newValue.maxAmount !== undefined) {
+    const maxAmountStr = String(newValue.maxAmount)
+    if (maxAmountStr !== '') {
+      const maxAmountNum = Number(maxAmountStr)
+      if (!isNaN(maxAmountNum)) query.maxAmount = maxAmountNum
+    }
+  }
+
+  if (newValue.decimals !== undefined) query.decimals = newValue.decimals
+  if (newValue.limit) query.limit = newValue.limit
+
+  if (buyAddresses.value.length > 0) {
+    const buyPairsData = buyAddresses.value.map(pair => ({ from: pair.from, to: pair.to }))
+    query.buyPairs = encodeURIComponent(JSON.stringify(buyPairsData))
+  }
+  if (sellAddresses.value.length > 0) {
+    const sellPairsData = sellAddresses.value.map(pair => ({ from: pair.from, to: pair.to }))
+    query.sellPairs = encodeURIComponent(JSON.stringify(sellPairsData))
+  }
+
+  router.replace({ query }).catch(() => {})
+}, { deep: true })
+
+// Watch address changes and update URL
+watch([buyAddresses, sellAddresses], () => {
+  if (isUpdatingFromUrl) return
+
+  const query: Record<string, any> = {}
+  if (searchParams.value.contractAddress) query.contractAddress = searchParams.value.contractAddress
+
+  if (searchParams.value.startBlock !== null && searchParams.value.startBlock !== undefined) {
+    const startBlockStr = String(searchParams.value.startBlock)
+    if (startBlockStr !== '') {
+      const startBlockNum = Number(startBlockStr)
+      if (!isNaN(startBlockNum)) query.startBlock = startBlockNum
+    }
+  }
+  if (searchParams.value.endBlock !== null && searchParams.value.endBlock !== undefined) {
+    const endBlockStr = String(searchParams.value.endBlock)
+    if (endBlockStr !== '') {
+      const endBlockNum = Number(endBlockStr)
+      if (!isNaN(endBlockNum)) query.endBlock = endBlockNum
+    }
+  }
+  if (searchParams.value.minAmount !== null && searchParams.value.minAmount !== undefined) {
+    const minAmountStr = String(searchParams.value.minAmount)
+    if (minAmountStr !== '') {
+      const minAmountNum = Number(minAmountStr)
+      if (!isNaN(minAmountNum)) query.minAmount = minAmountNum
+    }
+  }
+  if (searchParams.value.maxAmount !== null && searchParams.value.maxAmount !== undefined) {
+    const maxAmountStr = String(searchParams.value.maxAmount)
+    if (maxAmountStr !== '') {
+      const maxAmountNum = Number(maxAmountStr)
+      if (!isNaN(maxAmountNum)) query.maxAmount = maxAmountNum
+    }
+  }
+  if (searchParams.value.decimals !== undefined) query.decimals = searchParams.value.decimals
+  if (searchParams.value.limit) query.limit = searchParams.value.limit
+
+  if (buyAddresses.value.length > 0) {
+    const buyPairsData = buyAddresses.value.map(pair => ({ from: pair.from, to: pair.to }))
+    query.buyPairs = encodeURIComponent(JSON.stringify(buyPairsData))
+  }
+  if (sellAddresses.value.length > 0) {
+    const sellPairsData = sellAddresses.value.map(pair => ({ from: pair.from, to: pair.to }))
+    query.sellPairs = encodeURIComponent(JSON.stringify(sellPairsData))
+  }
+
+  router.replace({ query }).catch(() => {})
+}, { deep: true })
+
+// Watch route query and sync back to component
+watch(() => route.query, (newQuery) => {
+  isUpdatingFromUrl = true
+
+  if (newQuery.contractAddress) searchParams.value.contractAddress = String(newQuery.contractAddress)
+  else searchParams.value.contractAddress = ''
+
+  if (newQuery.startBlock) searchParams.value.startBlock = parseInt(String(newQuery.startBlock))
+  else searchParams.value.startBlock = null
+
+  if (newQuery.endBlock) searchParams.value.endBlock = parseInt(String(newQuery.endBlock))
+  else searchParams.value.endBlock = null
+
+  if (newQuery.minAmount) searchParams.value.minAmount = parseFloat(String(newQuery.minAmount))
+  else searchParams.value.minAmount = null
+
+  if (newQuery.maxAmount) searchParams.value.maxAmount = parseFloat(String(newQuery.maxAmount))
+  else searchParams.value.maxAmount = null
+
+  if (newQuery.decimals) searchParams.value.decimals = parseInt(String(newQuery.decimals)) || 18
+  else searchParams.value.decimals = 18
+
+  if (newQuery.limit) searchParams.value.limit = parseInt(String(newQuery.limit)) || 100
+  else searchParams.value.limit = 100
+
+  isUpdatingFromUrl = false
+}, { deep: true })
+
+// Initialize on mount
+onMounted(() => {
+  initializeFromUrl()
+})
+
 const currentView = ref<string>('all')
 const transactions = ref<any[]>([])
 const buyTotalAmount = ref<string>('0')
@@ -241,22 +433,22 @@ const isPolling = ref(false)
 let timer: any = null
 
 const columns = [
-  { title: 'Block', dataIndex: 'block_number', width: 100 },
-  { title: 'Tx Hash', dataIndex: 'tx_hash', slotName: 'tx_hash', width: 140 },
+  { title: '区块号', dataIndex: 'block_number', width: 100 },
+  { title: '交易哈希', dataIndex: 'tx_hash', slotName: 'tx_hash', width: 140 },
   { title: 'From', dataIndex: 'from_address', slotName: 'from_address', width: 140 },
   { title: 'To', dataIndex: 'to_address', slotName: 'to_address', width: 140 },
-  { title: 'Contract', dataIndex: 'contract_address', slotName: 'contract_address', width: 120 },
-  { title: 'Amount', dataIndex: 'amount', slotName: 'amount', width: 130 },
-  { title: 'Time', dataIndex: 'timestamp', slotName: 'timestamp', width: 170 },
+  { title: '代币合约', dataIndex: 'contract_address', slotName: 'contract_address', width: 120 },
+  { title: '数量', dataIndex: 'amount', slotName: 'amount', width: 130 },
+  { title: '时间', dataIndex: 'timestamp', slotName: 'timestamp', width: 170 },
 ]
 
 const detailColumns = [
-  { title: 'Block', dataIndex: 'block_number', width: 100 },
-  { title: 'Tx Hash', dataIndex: 'tx_hash', slotName: 'tx_hash', width: 140 },
+  { title: '区块号', dataIndex: 'block_number', width: 100 },
+  { title: '交易哈希', dataIndex: 'tx_hash', slotName: 'tx_hash', width: 140 },
   { title: 'From', dataIndex: 'from_address', slotName: 'from_address', width: 140 },
   { title: 'To', dataIndex: 'to_address', slotName: 'to_address', width: 140 },
-  { title: 'Amount', dataIndex: 'amount', slotName: 'amount', width: 130 },
-  { title: 'Time', dataIndex: 'timestamp', slotName: 'timestamp', width: 170 },
+  { title: '数量', dataIndex: 'amount', slotName: 'amount', width: 130 },
+  { title: '时间', dataIndex: 'timestamp', slotName: 'timestamp', width: 170 },
 ]
 
 const shortHash = (val: string) => !val ? '' : val.length > 12 ? val.slice(0, 6) + '...' + val.slice(-6) : val
@@ -267,12 +459,13 @@ const formatAmount = (val: string | number) => {
   return isNaN(num) ? '0' : num.toFixed(6)
 }
 
-const getPollingButtonText = () => isPolling.value ? 'Stop Polling' : 'Start Polling'
+const getPollingButtonText = () => isPolling.value ? '停止轮询' : '开始轮询接口'
 const togglePolling = () => isPolling.value ? stopPolling() : startPolling()
 
 const startPolling = () => {
   if (isPolling.value) return
   isPolling.value = true
+  currentView.value = 'all'
   fetchAllData()
   updateDisplayedData()
   timer = setInterval(() => { fetchAllData(); updateDisplayedData(); }, (refreshInterval.value || 60) * 1000)
@@ -296,10 +489,37 @@ const removeSellAddress = (index: number) => {
 
 const buildRequestParams = (type?: 'buy' | 'sell' | 'all') => {
   const params: any = { contractAddress: searchParams.value.contractAddress?.toLowerCase(), decimals: searchParams.value.decimals, limit: searchParams.value.limit }
-  if (searchParams.value.startBlock) params.startBlock = searchParams.value.startBlock
-  if (searchParams.value.endBlock) params.endBlock = searchParams.value.endBlock
-  if (searchParams.value.minAmount) params.minAmount = String(Number(searchParams.value.minAmount) * Math.pow(10, searchParams.value.decimals))
-  if (searchParams.value.maxAmount) params.maxAmount = String(Number(searchParams.value.maxAmount) * Math.pow(10, searchParams.value.decimals))
+
+  if (searchParams.value.startBlock !== null && searchParams.value.startBlock !== undefined) {
+    const startBlockStr = String(searchParams.value.startBlock)
+    if (startBlockStr !== '') {
+      const startBlockNum = Number(startBlockStr)
+      if (!isNaN(startBlockNum)) params.startBlock = startBlockNum
+    }
+  }
+  if (searchParams.value.endBlock !== null && searchParams.value.endBlock !== undefined) {
+    const endBlockStr = String(searchParams.value.endBlock)
+    if (endBlockStr !== '') {
+      const endBlockNum = Number(endBlockStr)
+      if (!isNaN(endBlockNum)) params.endBlock = endBlockNum
+    }
+  }
+
+  if (searchParams.value.minAmount !== null && searchParams.value.minAmount !== undefined) {
+    const minAmountStr = String(searchParams.value.minAmount)
+    if (minAmountStr !== '') {
+      const minAmountNum = Number(minAmountStr)
+      if (!isNaN(minAmountNum)) params.minAmount = String(minAmountNum * Math.pow(10, searchParams.value.decimals))
+    }
+  }
+  if (searchParams.value.maxAmount !== null && searchParams.value.maxAmount !== undefined) {
+    const maxAmountStr = String(searchParams.value.maxAmount)
+    if (maxAmountStr !== '') {
+      const maxAmountNum = Number(maxAmountStr)
+      if (!isNaN(maxAmountNum)) params.maxAmount = String(maxAmountNum * Math.pow(10, searchParams.value.decimals))
+    }
+  }
+
   const buyGroups = buyAddresses.value.filter(p => p.from || p.to).map(p => ({ from: p.from?.toLowerCase(), to: p.to?.toLowerCase() }))
   const sellGroups = sellAddresses.value.filter(p => p.from || p.to).map(p => ({ from: p.from?.toLowerCase(), to: p.to?.toLowerCase() }))
   if ((type === 'buy' || type === 'all') && buyGroups.length > 0) params.buyAddressGroups = buyGroups
@@ -308,11 +528,11 @@ const buildRequestParams = (type?: 'buy' | 'sell' | 'all') => {
 }
 
 const fetchAllData = async () => {
-  if (!searchParams.value.contractAddress) { Message.warning('Please enter contract address'); return }
+  if (!searchParams.value.contractAddress) { Message.warning('请输入合约地址'); return }
   try {
     const params = buildRequestParams('all')
     const result = await getTokenFilterAnalysisAggregate(params)
-    if ((result as any).code !== 200) throw new Error((result as any).message || 'Query failed')
+    if ((result as any).code !== 200) throw new Error((result as any).message || '查询失败')
     const data = (result as any).data
     buyAddresses.value.forEach(p => p.data = [])
     sellAddresses.value.forEach(p => p.data = [])
@@ -325,7 +545,7 @@ const fetchAllData = async () => {
 }
 
 const fetchRowData = async (type: 'buy' | 'sell', _index: number) => {
-  if (!searchParams.value.contractAddress) { Message.warning('Please enter contract address'); return }
+  if (!searchParams.value.contractAddress) { Message.warning('请输入合约地址'); return }
   try {
     const params = buildRequestParams(type)
     const result = await getTokenFilterAnalysisAggregate(params)
@@ -337,7 +557,9 @@ const fetchRowData = async (type: 'buy' | 'sell', _index: number) => {
     if (data.sellGroups) data.sellGroups.forEach((g: any, i: number) => { if (sellAddresses.value[i]) sellAddresses.value[i].data = (g.transactions || []).map((t: any) => ({ ...t, amount: String(t.amount_decimal || t.amount || '0') })) })
     updateTotalAmounts()
     updateDisplayedData()
-    Message.success('Query successful! ' + (data.summary?.groupSuccessCount || 0) + ' groups, ' + (data.summary?.totalTransactionCount || 0) + ' records')
+    const totalGroups = data.summary?.groupSuccessCount || 0
+    const totalTransactions = data.summary?.totalTransactionCount || 0
+    Message.success(`Query successful! ${totalGroups} address groups, ${totalTransactions} records`)
   } catch (e: any) { Message.error('Query failed: ' + (e?.message || 'Unknown error')) }
 }
 
@@ -348,10 +570,31 @@ const fetchBuyAddress = async (index: number) => {
   buyAddresses.value.forEach((p, i) => { if (i !== index) p.data = [] })
   try {
     const params: any = { contractAddress: searchParams.value.contractAddress?.toLowerCase(), decimals: searchParams.value.decimals, limit: searchParams.value.limit }
-    if (searchParams.value.startBlock) params.startBlock = searchParams.value.startBlock
-    if (searchParams.value.endBlock) params.endBlock = searchParams.value.endBlock
-    if (searchParams.value.minAmount) params.minAmount = String(Number(searchParams.value.minAmount) * Math.pow(10, searchParams.value.decimals))
-    if (searchParams.value.maxAmount) params.maxAmount = String(Number(searchParams.value.maxAmount) * Math.pow(10, searchParams.value.decimals))
+
+    if (searchParams.value.startBlock !== null && searchParams.value.startBlock !== undefined) {
+      const startBlockStr = String(searchParams.value.startBlock)
+      if (startBlockStr !== '') params.startBlock = Number(startBlockStr)
+    }
+    if (searchParams.value.endBlock !== null && searchParams.value.endBlock !== undefined) {
+      const endBlockStr = String(searchParams.value.endBlock)
+      if (endBlockStr !== '') params.endBlock = Number(endBlockStr)
+    }
+
+    if (searchParams.value.minAmount !== null && searchParams.value.minAmount !== undefined) {
+      const minAmountStr = String(searchParams.value.minAmount)
+      if (minAmountStr !== '') {
+        const minAmountNum = Number(minAmountStr)
+        if (!isNaN(minAmountNum)) params.minAmount = String(minAmountNum * Math.pow(10, searchParams.value.decimals))
+      }
+    }
+    if (searchParams.value.maxAmount !== null && searchParams.value.maxAmount !== undefined) {
+      const maxAmountStr = String(searchParams.value.maxAmount)
+      if (maxAmountStr !== '') {
+        const maxAmountNum = Number(maxAmountStr)
+        if (!isNaN(maxAmountNum)) params.maxAmount = String(maxAmountNum * Math.pow(10, searchParams.value.decimals))
+      }
+    }
+
     const group = { from: buyAddresses.value[index].from?.toLowerCase(), to: buyAddresses.value[index].to?.toLowerCase() }
     if (group.from || group.to) params.buyAddressGroups = [group]
     const result = await getTokenFilterAnalysisAggregate(params)
@@ -373,10 +616,31 @@ const fetchSellAddress = async (index: number) => {
   sellAddresses.value.forEach((p, i) => { if (i !== index) p.data = [] })
   try {
     const params: any = { contractAddress: searchParams.value.contractAddress?.toLowerCase(), decimals: searchParams.value.decimals, limit: searchParams.value.limit }
-    if (searchParams.value.startBlock) params.startBlock = searchParams.value.startBlock
-    if (searchParams.value.endBlock) params.endBlock = searchParams.value.endBlock
-    if (searchParams.value.minAmount) params.minAmount = String(Number(searchParams.value.minAmount) * Math.pow(10, searchParams.value.decimals))
-    if (searchParams.value.maxAmount) params.maxAmount = String(Number(searchParams.value.maxAmount) * Math.pow(10, searchParams.value.decimals))
+
+    if (searchParams.value.startBlock !== null && searchParams.value.startBlock !== undefined) {
+      const startBlockStr = String(searchParams.value.startBlock)
+      if (startBlockStr !== '') params.startBlock = Number(startBlockStr)
+    }
+    if (searchParams.value.endBlock !== null && searchParams.value.endBlock !== undefined) {
+      const endBlockStr = String(searchParams.value.endBlock)
+      if (endBlockStr !== '') params.endBlock = Number(endBlockStr)
+    }
+
+    if (searchParams.value.minAmount !== null && searchParams.value.minAmount !== undefined) {
+      const minAmountStr = String(searchParams.value.minAmount)
+      if (minAmountStr !== '') {
+        const minAmountNum = Number(minAmountStr)
+        if (!isNaN(minAmountNum)) params.minAmount = String(minAmountNum * Math.pow(10, searchParams.value.decimals))
+      }
+    }
+    if (searchParams.value.maxAmount !== null && searchParams.value.maxAmount !== undefined) {
+      const maxAmountStr = String(searchParams.value.maxAmount)
+      if (maxAmountStr !== '') {
+        const maxAmountNum = Number(maxAmountStr)
+        if (!isNaN(maxAmountNum)) params.maxAmount = String(maxAmountNum * Math.pow(10, searchParams.value.decimals))
+      }
+    }
+
     const group = { from: sellAddresses.value[index].from?.toLowerCase(), to: sellAddresses.value[index].to?.toLowerCase() }
     if (group.from || group.to) params.sellAddressGroups = [group]
     const result = await getTokenFilterAnalysisAggregate(params)
@@ -459,7 +723,7 @@ const loadAddressTags = async (address: string) => {
 }
 const loadUniqueTags = async () => { try { const res = await getUniqueAddressTags(); uniqueTags.value = res.data?.tags || [] } catch { } }
 const addTag = async () => {
-  if (!tagForm.value.tag.trim()) { Message.warning('Please enter tag name'); return }
+  if (!tagForm.value.tag.trim()) { Message.warning('请输入标签名'); return }
   tagLoading.value = true
   try {
     await addAddressTag({ address: currentAddress.value, tag: tagForm.value.tag.trim(), description: tagForm.value.description.trim() })
@@ -493,14 +757,85 @@ onUnmounted(() => { if (timer) { clearInterval(timer); timer = null } })
 </script>
 
 <style scoped lang="scss">
-.token-filter-analysis { padding: 20px; max-width: 1600px; margin: 0 auto; }
-.page-header { margin-bottom: 20px; h1 { font-size: 24px; font-weight: 600; color: var(--color-text-1, #fff); margin: 0; } }
-.search-form { margin-bottom: 16px; padding: 16px; background: var(--color-bg-2, #2a2a2b); border-radius: 4px; }
-.filter-form { margin-bottom: 12px; padding: 12px 16px; background: var(--color-bg-2, #2a2a2b); border-radius: 4px; }
-.action-bar { margin: 12px 0; }
-.address-card { margin-bottom: 16px; :deep(.arco-card-header) { border-bottom: 1px solid var(--color-border, #2a2a2b); } }
-.address-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; .address-input { flex: 1; } }
-.summary-card { margin-bottom: 16px; }
-.transaction-table { margin-top: 20px; }
-.tag-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px; border: 1px solid var(--color-border, #2a2a2b); border-radius: 4px; margin-bottom: 8px; .tag-info { flex: 1; .tag-desc { color: var(--color-text-3, #999); font-size: 12px; margin-top: 4px; } } }
+.token-filter-analysis {
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 20px;
+
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-text-1, #fff);
+    margin: 0;
+  }
+}
+
+.search-form {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--color-bg-2, #2a2a2b);
+  border-radius: 4px;
+}
+
+.filter-form {
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  background: var(--color-bg-2, #2a2a2b);
+  border-radius: 4px;
+}
+
+.action-bar {
+  margin: 12px 0;
+}
+
+.address-card {
+  margin-bottom: 16px;
+
+  :deep(.arco-card-header) {
+    border-bottom: 1px solid var(--color-border, #2a2a2b);
+  }
+}
+
+.address-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+
+  .address-input {
+    flex: 1;
+  }
+}
+
+.summary-card {
+  margin-bottom: 16px;
+}
+
+.transaction-table {
+  margin-top: 20px;
+}
+
+.tag-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px;
+  border: 1px solid var(--color-border, #2a2a2b);
+  border-radius: 4px;
+  margin-bottom: 8px;
+
+  .tag-info {
+    flex: 1;
+
+    .tag-desc {
+      color: var(--color-text-3, #999);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  }
+}
 </style>

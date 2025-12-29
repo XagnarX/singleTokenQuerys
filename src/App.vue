@@ -1,11 +1,10 @@
 <template>
   <div id="app">
-    <TokenFilterAnalysis />
+    <router-view />
   </div>
 </template>
 
 <script setup lang="ts">
-import TokenFilterAnalysis from './views/TokenFilterAnalysis.vue'
 </script>
 
 <style scoped>
