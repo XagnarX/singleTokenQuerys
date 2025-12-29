@@ -1,4 +1,4 @@
-@import "./base.scss";
+@use "./base.scss";
 
 html, body, #app {
   background: var(--color-bg-1, #232324) !important;
