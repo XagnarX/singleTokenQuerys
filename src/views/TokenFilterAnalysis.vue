@@ -31,9 +31,14 @@
         <a-button type="text" size="small" @click="downloadHistory" style="margin-right: 8px;">下载记录</a-button>
         <a-button type="text" status="danger" size="small" @click="clearHistory">清空记录</a-button>
       </template>
-      <a-table :data="historyRecords" :pagination="{ pageSize: 5 }" size="small" :bordered="false">
+      <a-table :data="historyRecords" :pagination="{ pageSize: 5 }" size="small" :bordered="false" :row-class="rowClass">
         <template #columns>
-          <a-table-column title="时间" data-index="time" :width="160" />
+          <a-table-column title="时间" data-index="time" :width="160">
+             <template #cell="{ record }">
+                 <span v-if="record.isActive" style="color: #00b42a; font-weight: bold;">{{ record.time }}</span>
+                 <span v-else>{{ record.time }}</span>
+             </template>
+          </a-table-column>
           <a-table-column title="范围" data-index="range" />
           <a-table-column title="买入 (笔数 / 金额)" :width="180">
             <template #cell="{ record }">
@@ -81,7 +86,14 @@
         <a-input-number v-model="searchParams.limit" :min="1" placeholder="Limit" style="width: 100px;" />
       </a-form-item>
       <a-form-item label="Refresh(s)">
-        <a-input-number v-model="refreshInterval" :min="5" placeholder="Refresh interval" style="width: 100px;" />
+        <a-input-number v-model="refreshInterval" :min="5" placeholder="Auto-Step interval" style="width: 100px;">
+             <template #prefix>Step(s)</template>
+        </a-input-number>
+      </a-form-item>
+      <a-form-item label="Monitor(s)">
+        <a-input-number v-model="monitorInterval" :min="2" placeholder="Monitor interval" style="width: 100px;">
+             <template #prefix>Live(s)</template>
+        </a-input-number>
       </a-form-item>
       <a-form-item>
         <a-checkbox v-model="isAutoStep">Auto Increase</a-checkbox>
@@ -287,8 +299,10 @@ const searchParams = ref({
 })
 
 const stepSize = ref(100)
-interface HistoryRecord { id: number; time: string; range: string; buyTotal: string; sellTotal: string; buyCount: number; sellCount: number; netFlow: string; netAmount: number }
+const stepSize = ref(100)
+interface HistoryRecord { id: number; time: string; range: string; buyTotal: string; sellTotal: string; buyCount: number; sellCount: number; netFlow: string; netAmount: number; isActive?: boolean }
 const historyRecords = ref<HistoryRecord[]>([])
+const activeHistoryId = ref<number | null>(null)
 
 const nextStep = () => {
   const currentEnd = Number(searchParams.value.endBlock)
@@ -320,39 +334,64 @@ const prevStep = () => {
   }
 }
 
-const addToHistory = (overrideBuyCount?: number, overrideSellCount?: number) => {
+const addToHistory = (overrideBuyCount?: number, overrideSellCount?: number, isUpdate: boolean = false) => {
   const now = dayjs().format('HH:mm:ss')
   const range = (searchParams.value.startBlock || 'Beginning') + ' - ' + (searchParams.value.endBlock || 'Latest')
-  // Use overrides if provided (from Twin Request), otherwise fallback to current view state
+  
   const buyCount = overrideBuyCount !== undefined ? overrideBuyCount : buyAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
   const sellCount = overrideSellCount !== undefined ? overrideSellCount : sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
   
-  // Sanitize amount strings (remove commas) to ensure numeric validity
   const cleanBuyTotal = buyTotalAmount.value.replace(/,/g, '')
   const cleanSellTotal = sellTotalAmount.value.replace(/,/g, '')
   
-  // Recalculate Net Flow with safe numbers
   const safeBuy = parseFloat(cleanBuyTotal) || 0
   const safeSell = parseFloat(cleanSellTotal) || 0
   const safeNet = safeBuy - safeSell
   const safeNetDisplay = safeNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
 
-  historyRecords.value.unshift({
-    id: Date.now(),
-    time: now,
+  const record: HistoryRecord = {
+    id: activeHistoryId.value && isUpdate ? activeHistoryId.value : Date.now(),
+    time: activeHistoryId.value && isUpdate ? (historyRecords.value.find(r => r.id === activeHistoryId.value)?.time || now) : now + ' (Live)',
     range: range,
     buyTotal: buyTotalAmount.value,
     sellTotal: sellTotalAmount.value,
-    buyCount: buyCount || 0, // Ensure no undefined
+    buyCount: buyCount || 0,
     sellCount: sellCount || 0,
     netFlow: safeNetDisplay,
-    netAmount: safeNet
-  })
+    netAmount: safeNet,
+    isActive: true 
+  }
+
+  if (isUpdate && activeHistoryId.value) {
+      // Find and update existing active record
+      const idx = historyRecords.value.findIndex(r => r.id === activeHistoryId.value)
+      if (idx !== -1) {
+          historyRecords.value[idx] = { ...record, isActive: true } // Keep it active
+      } else {
+          // If lost, re-add
+          historyRecords.value.unshift(record)
+          activeHistoryId.value = record.id
+      }
+  } else {
+      // Finalize previous active record if exists
+      if (activeHistoryId.value) {
+          const prevIdx = historyRecords.value.findIndex(r => r.id === activeHistoryId.value)
+          if (prevIdx !== -1) {
+              historyRecords.value[prevIdx].isActive = false
+              historyRecords.value[prevIdx].time = historyRecords.value[prevIdx].time.replace(' (Live)', '')
+          }
+      }
+      // Add new record
+      historyRecords.value.unshift(record)
+      activeHistoryId.value = record.id
+  }
 }
 
 const removeHistory = (id: number) => {
   historyRecords.value = historyRecords.value.filter(r => r.id !== id)
 }
+
+const rowClass = (record: any) => record.isActive ? 'active-row' : ''
 
 const clearHistory = () => {
   historyRecords.value = []
@@ -425,7 +464,9 @@ const pagination = ref({
   total: 0,
   showTotal: true
 })
-let timer: any = null
+const monitorInterval = ref<number>(5)
+let stepTimer: any = null
+let monitorTimer: any = null
 
 const columns = [
   { title: 'Block', dataIndex: 'block_number', width: 100 },
@@ -485,22 +526,33 @@ const startPolling = () => {
   isPolling.value = true
   
   if (!hasStartedPolling.value) {
-     // First request of the session: Search CURRENT range only.
-     fetchAllData()
+     // First request: Search based on current range, start a new history row
+     fetchAllData(false) // isUpdate = false
      hasStartedPolling.value = true
   } else {
-      // Restarting: Immediately execute next step (resume flow)
-      executeAutoStep()
+      // Just Resume: Don't step immediately, just start timers
+      // But maybe ensure we have an active row?
+      fetchAllData(true) // Update current if exists
   }
   
-  timer = setInterval(() => {
+  // 1. Monitor Timer (Fast, e.g. 5s) -> Updates the Active Row with new data
+  monitorTimer = setInterval(() => {
+      fetchAllData(true) // True = Update Active Row
+  }, (monitorInterval.value || 5) * 1000)
+
+  // 2. Step Timer (Slow, e.g. 60s) -> Advances Block & Creates New Row
+  stepTimer = setInterval(() => {
     executeAutoStep()
   }, (refreshInterval.value || 60) * 1000)
 }
 
 const stopPolling = () => {
   isPolling.value = false
-  if (timer) { clearInterval(timer); timer = null }
+  if (stepTimer) { clearInterval(stepTimer); stepTimer = null }
+  if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null }
+  
+  // Optional: Mark row as final when stopping? 
+  // For now let's leave it active so they can resume.
 }
 
 const addBuyAddress = () => buyAddresses.value.push({ from: '', to: '', data: [], loading: false })
@@ -534,7 +586,7 @@ const buildRequestParams = (type?: 'buy' | 'sell' | 'all') => {
   return params
 }
 
-const fetchAllData = async () => {
+const fetchAllData = async (isUpdate: boolean = false) => {
   if (!searchParams.value.contractAddress) { Message.warning('Please enter contract address'); return }
   try {
     const params = buildRequestParams('all')
@@ -586,7 +638,9 @@ const fetchAllData = async () => {
             const sCount = (statsData.sellGroups || []).reduce((acc: number, g: any) => acc + (g.transactions?.length || 0), 0)
 
             // Trigger History with accurate sums AND counts
-            addToHistory(bCount, sCount)
+            // If this fetch was triggered by Monitor Timer, pass true to update existing row
+            addToHistory(bCount, sCount, isUpdate)
+        }
         }
     } catch (statsErr) {
         console.warn("Background stats fetch failed:", statsErr)
@@ -796,6 +850,7 @@ const saveState = () => {
     searchParams: searchParams.value,
     stepSize: stepSize.value,
     refreshInterval: refreshInterval.value,
+    monitorInterval: monitorInterval.value,
     isAutoStep: isAutoStep.value,
     buyAddresses: buyAddresses.value.map(p => ({ from: p.from, to: p.to })),
     sellAddresses: sellAddresses.value.map(p => ({ from: p.from, to: p.to }))
@@ -820,6 +875,7 @@ const restoreState = () => {
         sellAddresses.value = state.sellAddresses.map((p: any) => ({ from: p.from || '', to: p.to || '', data: [], loading: false }))
         if (sellAddresses.value.length === 0) sellAddresses.value = [{ from: '', to: '', data: [], loading: false }]
       }
+      if (state.monitorInterval) monitorInterval.value = state.monitorInterval
     } catch (e) { console.error('Failed to restore form state', e) }
   }
 }
@@ -846,4 +902,5 @@ onMounted(() => {
 .summary-card { margin-bottom: 16px; }
 .transaction-table { margin-top: 20px; }
 .tag-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px; border: 1px solid var(--color-border, #2a2a2b); border-radius: 4px; margin-bottom: 8px; .tag-info { flex: 1; .tag-desc { color: var(--color-text-3, #999); font-size: 12px; margin-top: 4px; } } }
+:deep(.active-row) td { background-color: rgba(0, 180, 42, 0.1) !important; transition: background-color 0.3s; }
 </style>
