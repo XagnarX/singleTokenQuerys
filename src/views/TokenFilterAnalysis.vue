@@ -320,12 +320,12 @@ const prevStep = () => {
   }
 }
 
-const addToHistory = () => {
+const addToHistory = (overrideBuyCount?: number, overrideSellCount?: number) => {
   const now = dayjs().format('HH:mm:ss')
   const range = (searchParams.value.startBlock || 'Beginning') + ' - ' + (searchParams.value.endBlock || 'Latest')
-  // Use data length from twin request or fallback
-  const buyCount = buyAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
-  const sellCount = sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+  // Use overrides if provided (from Twin Request), otherwise fallback to current view state
+  const buyCount = overrideBuyCount !== undefined ? overrideBuyCount : buyAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+  const sellCount = overrideSellCount !== undefined ? overrideSellCount : sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
   
   // Sanitize amount strings (remove commas) to ensure numeric validity
   const cleanBuyTotal = buyTotalAmount.value.replace(/,/g, '')
@@ -581,8 +581,12 @@ const fetchAllData = async () => {
             buyTotalAmount.value = bTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
             sellTotalAmount.value = sTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
             
-            // Trigger History with accurate sums
-            addToHistory()
+            // Calculate detailed counts from full dataset
+            const bCount = (statsData.buyGroups || []).reduce((acc: number, g: any) => acc + (g.transactions?.length || 0), 0)
+            const sCount = (statsData.sellGroups || []).reduce((acc: number, g: any) => acc + (g.transactions?.length || 0), 0)
+
+            // Trigger History with accurate sums AND counts
+            addToHistory(bCount, sCount)
         }
     } catch (statsErr) {
         console.warn("Background stats fetch failed:", statsErr)
