@@ -27,6 +27,10 @@ export interface AggregateResponse {
         summary: {
             groupSuccessCount: number;
             totalTransactionCount: number;
+            totalBuyAmount?: string;
+            totalSellAmount?: string;
+            totalBuyCount?: number;
+            totalSellCount?: number;
         };
         transactions?: Transaction[];
         pagination?: {

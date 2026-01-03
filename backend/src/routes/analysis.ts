@@ -41,7 +41,11 @@ router.post('/aggregate', (req: Request, res: Response) => {
         sellGroups: [],
         summary: {
             groupSuccessCount: 0,
-            totalTransactionCount: 0
+            totalTransactionCount: 0,
+            totalBuyAmount: '0',
+            totalSellAmount: '0',
+            totalBuyCount: 0,
+            totalSellCount: 0
         },
         pagination: {
             page: currentPage,
@@ -50,15 +54,25 @@ router.post('/aggregate', (req: Request, res: Response) => {
         }
     };
 
+    // Track totals
+    let totalBuyAmt = 0;
+    let totalSellAmt = 0;
+    let totalBuyCnt = 0;
+    let totalSellCnt = 0;
+
     let allTransactions: Transaction[] = [];
 
     // Process Buy Groups (Mock)
     if (buyAddressGroups && Array.isArray(buyAddressGroups)) {
         responseData.buyGroups = buyAddressGroups.map((group: any) => {
-            // If flatList is requested (pagination mode), don't return full transactions in groups to save bandwidth
-            // Just simulate counts
-            const count = Math.floor(Math.random() * 300) + 200;
+            // Generate TONS of data (5,000 - 10,000 records)
+            const count = Math.floor(Math.random() * 5000) + 5000;
             responseData.summary.totalTransactionCount += count;
+            totalBuyCnt += count;
+
+            // Mock Amount Sum (avg ~500)
+            const estimatedSum = count * 500.5;
+            totalBuyAmt += estimatedSum;
 
             // Only generate detailed mock data if we are NOT in flatList mode OR if we need to mock "All"
             // For efficient mock pagination, we just generate the SLICE later. 
@@ -78,8 +92,14 @@ router.post('/aggregate', (req: Request, res: Response) => {
     // Process Sell Groups (Mock)
     if (sellAddressGroups && Array.isArray(sellAddressGroups)) {
         responseData.sellGroups = sellAddressGroups.map((group: any) => {
-            const count = Math.floor(Math.random() * 300) + 200;
+            // Generate TONS of data
+            const count = Math.floor(Math.random() * 5000) + 5000;
             responseData.summary.totalTransactionCount += count;
+            totalSellCnt += count;
+
+            // Mock Amount Sum
+            const estimatedSum = count * 500.5;
+            totalSellAmt += estimatedSum;
             if (flatList) {
                 return { transactions: [], _count: count };
             }
@@ -90,6 +110,12 @@ router.post('/aggregate', (req: Request, res: Response) => {
         });
         responseData.summary.groupSuccessCount += sellAddressGroups.length;
     }
+
+    // Assign sums
+    responseData.summary.totalBuyAmount = totalBuyAmt.toFixed(6);
+    responseData.summary.totalSellAmount = totalSellAmt.toFixed(6);
+    responseData.summary.totalBuyCount = totalBuyCnt;
+    responseData.summary.totalSellCount = totalSellCnt;
 
     // Simple Pagination Logic for Mock Data
     if (flatList) {

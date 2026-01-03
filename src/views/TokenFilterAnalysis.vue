@@ -535,22 +535,21 @@ const fetchAllData = async () => {
        pagination.value.total = data.pagination.total
     }
     
+     
     // Update transactions table (paginated slice)
     transactions.value = (data.transactions || []).map((t: any) => ({ ...t, amount: String(t.amount_decimal || t.amount || '0') }))
 
+    // Update Totals from Backend Summary (Supporting Pagination)
+    if (data.summary) {
+        if (data.summary.totalBuyAmount !== undefined) buyTotalAmount.value = Number(data.summary.totalBuyAmount).toLocaleString();
+        if (data.summary.totalSellAmount !== undefined) sellTotalAmount.value = Number(data.summary.totalSellAmount).toLocaleString();
+    } else {
+        updateTotalAmounts()
+    }
+
     // Mock: We still need to populate buyAddresses/sellAddresses data arrays for the "Net Flow" calc and "Export"?
-    // Actually, for "Net Flow" we need TOTALS, but we don't need 10,000 transaction strings in memory.
     // The backend mock response logic for "groups" now returns EMPTY transactions if flatList=true.
     // So we rely on the BACKEND's summary or we need proper stats endpoint.
-    // Current Backend Mock calculates total counts, but maybe not total amounts per group in the summary?
-    // The mock code: "responseData.summary.totalTransactionCount += count".
-    // It does NOT calculate amount totals efficiently without generating transactions.
-    // BUT since we are optimized, we will assume for now that "Counts" are correct, but "Amounts" might be 0 or estimated for the summary if we don't fetch all.
-    // However, the current requirement is just PAGINATION for the table.
-    // Let's assume the user is okay with the table being paginated. The "Export History" might be incomplete if we don't fetch all.
-    // That's a trade-off. "Export" should probably trigger a separate "Download All" request.
-    // For now, let's focus on the Table Display.
-    
     // We update the local address view counts (using the _count hack if available, or just ignore list length)
     // The backend mock adds `_count` prop when flatList is true.
     if (data.buyGroups) data.buyGroups.forEach((g: any, i: number) => { 
@@ -565,9 +564,8 @@ const fetchAllData = async () => {
         }
     })
     
-    updateTotalAmounts()
-    // addToHistory() // History log might need revision as it relied on full data sums. 
-    // We will skip addToHistory detail accuracy for amount-sums for now as performance is priority.
+    // History is now safe to add because we have correct Totals from backend
+    addToHistory()
     
     Message.success('Query completed')
   } catch (e: any) { Message.error('Query failed: ' + (e?.message || 'Unknown error')) }
