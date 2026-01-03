@@ -526,36 +526,61 @@ const fetchAllData = async () => {
   if (!searchParams.value.contractAddress) { Message.warning('Please enter contract address'); return }
   try {
     const params = buildRequestParams('all')
-    const result = await getTokenFilterAnalysisAggregate(params)
-    if ((result as any).code !== 200) throw new Error((result as any).message || 'Query failed')
-    const data = (result as any).data
+    const tableResult = await getTokenFilterAnalysisAggregate(params)
+    if ((tableResult as any).code !== 200) throw new Error((tableResult as any).message || 'Query failed')
+    const data = (tableResult as any).data
     
     // Update pagination metadata
     if (data.pagination) {
        pagination.value.total = data.pagination.total
     }
     
-     
     // Update transactions table (paginated slice)
     transactions.value = (data.transactions || []).map((t: any) => ({ ...t, amount: String(t.amount_decimal || t.amount || '0') }))
 
-    // Update Totals from Backend Summary (Supporting Pagination)
-    if (data.summary) {
-        if (data.summary.totalBuyAmount !== undefined) buyTotalAmount.value = Number(data.summary.totalBuyAmount).toLocaleString();
-        if (data.summary.totalSellAmount !== undefined) sellTotalAmount.value = Number(data.summary.totalSellAmount).toLocaleString();
-    } else {
-        updateTotalAmounts()
+    // --- Frontend-Only Stats Calculation (Twin Request Strategy) ---
+    // Since backend summary doesn't support totals in pagination mode, we must fetch ALL data separately.
+    // We send a request without pagination params to get the full dataset.
+    const fullStatsParams = { ...params }
+    delete fullStatsParams.page
+    delete fullStatsParams.pageSize
+    delete fullStatsParams.flatList // Force backend to return full grouped data (if supported) or just standard flat list
+    
+    // We use a separate try/catch so the table doesn't fail if stats fail
+    try {
+        const statsResult = await getTokenFilterAnalysisAggregate(fullStatsParams)
+        if ((statsResult as any).code === 200) {
+            const statsData = (statsResult as any).data
+            let bTotal = 0
+            let sTotal = 0
+            
+            // Sum up from groups (assuming backend standard format)
+            if (statsData.buyGroups) {
+                statsData.buyGroups.forEach((g: any) => {
+                    (g.transactions || []).forEach((t: any) => { bTotal += Number(t.amount_decimal || t.amount || 0) })
+                })
+            }
+            if (statsData.sellGroups) {
+                statsData.sellGroups.forEach((g: any) => {
+                    (g.transactions || []).forEach((t: any) => { sTotal += Number(t.amount_decimal || t.amount || 0) })
+                })
+            }
+            // Update Headers
+            buyTotalAmount.value = bTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+            sellTotalAmount.value = sTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+            
+            // Trigger History with accurate sums
+            addToHistory()
+        }
+    } catch (statsErr) {
+        console.warn("Background stats fetch failed:", statsErr)
     }
 
-    // Mock: We still need to populate buyAddresses/sellAddresses data arrays for the "Net Flow" calc and "Export"?
-    // The backend mock response logic for "groups" now returns EMPTY transactions if flatList=true.
-    // So we rely on the BACKEND's summary or we need proper stats endpoint.
-    // We update the local address view counts (using the _count hack if available, or just ignore list length)
+    // Update local address view counts from the first (paginated) response if available
     // The backend mock adds `_count` prop when flatList is true.
     if (data.buyGroups) data.buyGroups.forEach((g: any, i: number) => { 
         if (buyAddresses.value[i]) {
-            // Store count only? Or empty data.
-             buyAddresses.value[i].data = new Array(g._count || 0).fill({}) // Shim for length checks
+             buyAddresses.value[i].data = new Array(g._count || 0).fill({}) 
         }
     })
     if (data.sellGroups) data.sellGroups.forEach((g: any, i: number) => { 
@@ -563,9 +588,6 @@ const fetchAllData = async () => {
              sellAddresses.value[i].data = new Array(g._count || 0).fill({})
         }
     })
-    
-    // History is now safe to add because we have correct Totals from backend
-    addToHistory()
     
     Message.success('Query completed')
   } catch (e: any) { Message.error('Query failed: ' + (e?.message || 'Unknown error')) }
