@@ -323,18 +323,30 @@ const prevStep = () => {
 const addToHistory = () => {
   const now = dayjs().format('HH:mm:ss')
   const range = (searchParams.value.startBlock || 'Beginning') + ' - ' + (searchParams.value.endBlock || 'Latest')
+  // Use data length from twin request or fallback
   const buyCount = buyAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
   const sellCount = sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+  
+  // Sanitize amount strings (remove commas) to ensure numeric validity
+  const cleanBuyTotal = buyTotalAmount.value.replace(/,/g, '')
+  const cleanSellTotal = sellTotalAmount.value.replace(/,/g, '')
+  
+  // Recalculate Net Flow with safe numbers
+  const safeBuy = parseFloat(cleanBuyTotal) || 0
+  const safeSell = parseFloat(cleanSellTotal) || 0
+  const safeNet = safeBuy - safeSell
+  const safeNetDisplay = safeNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+
   historyRecords.value.unshift({
     id: Date.now(),
     time: now,
     range: range,
     buyTotal: buyTotalAmount.value,
     sellTotal: sellTotalAmount.value,
-    buyCount: buyCount,
-    sellCount: sellCount,
-    netFlow: netAmountDisplay.value,
-    netAmount: netAmount.value
+    buyCount: buyCount || 0, // Ensure no undefined
+    sellCount: sellCount || 0,
+    netFlow: safeNetDisplay,
+    netAmount: safeNet
   })
 }
 
