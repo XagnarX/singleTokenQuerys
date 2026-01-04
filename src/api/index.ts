@@ -15,8 +15,49 @@ request.interceptors.response.use((response) => response.data, async (error) => 
 
 export default request
 
-export const getTokenFilterAnalysisAggregate = async (params: any, options?: any) => {
-  return request('/api/token-filter-analysis/aggregate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, data: params, ...(options || {}) })
+export const getTokenFilterAnalysisAggregate = async (params: {
+  contractAddress: string;
+  decimals: number;
+  limit?: number;
+  startBlock?: number;
+  endBlock?: number;
+  minAmount?: string;
+  maxAmount?: string;
+  buyAddressGroups?: Array<{ from: string; to: string }>;
+  sellAddressGroups?: Array<{ from: string; to: string }>;
+}, options?: any) => {
+  // Convert camelCase to snake_case and encode address groups
+  const queryParams: any = {
+    contract_address: params.contractAddress.toLowerCase(),
+    decimals: params.decimals,
+  };
+
+  if (params.limit !== undefined) queryParams.limit = params.limit;
+  if (params.startBlock !== undefined) queryParams.start_block = params.startBlock;
+  if (params.endBlock !== undefined) queryParams.end_block = params.endBlock;
+  if (params.minAmount !== undefined) queryParams.min_amount = params.minAmount;
+  if (params.maxAmount !== undefined) queryParams.max_amount = params.maxAmount;
+
+  // Encode address groups as JSON strings
+  if (params.buyAddressGroups && params.buyAddressGroups.length > 0) {
+    const filtered = params.buyAddressGroups.filter(g => g.from || g.to);
+    if (filtered.length > 0) {
+      queryParams.buy_address_groups = encodeURIComponent(JSON.stringify(
+        filtered.map(g => ({ from: g.from.toLowerCase(), to: g.to.toLowerCase() }))
+      ));
+    }
+  }
+
+  if (params.sellAddressGroups && params.sellAddressGroups.length > 0) {
+    const filtered = params.sellAddressGroups.filter(g => g.from || g.to);
+    if (filtered.length > 0) {
+      queryParams.sell_address_groups = encodeURIComponent(JSON.stringify(
+        filtered.map(g => ({ from: g.from.toLowerCase(), to: g.to.toLowerCase() }))
+      ));
+    }
+  }
+
+  return request('/api/token-filter-analysis/aggregate', { method: 'GET', params: queryParams, ...(options || {}) })
 }
 
 export const getAddressTags = async (params?: any, options?: any) => {
