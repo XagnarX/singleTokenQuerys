@@ -838,7 +838,10 @@ const showRecordDetail = async (record: any, type: string) => {
 const handleDetailModalOk = () => { detailModalVisible.value = false; currentDetailRecord.value = null; similarRecords.value = [] }
 const handleDetailModalCancel = () => { detailModalVisible.value = false; currentDetailRecord.value = null; similarRecords.value = [] }
 
-onUnmounted(() => { if (timer) { clearInterval(timer); timer = null } })
+onUnmounted(() => {
+  if (stepTimer) { clearInterval(stepTimer); stepTimer = null }
+  if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null }
+})
 
 const STORAGE_KEY = 'tokanA_filter_form_data'
 
