@@ -639,7 +639,6 @@ const fetchAllData = async (isUpdate: boolean = false) => {
             // If this fetch was triggered by Monitor Timer, pass true to update existing row
             addToHistory(bCount, sCount, isUpdate)
         }
-        }
     } catch (statsErr) {
         console.warn("Background stats fetch failed:", statsErr)
     }
