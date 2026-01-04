@@ -40,3 +40,7 @@ local.env
 /dist/
 
 *.tsbuildinfo
+
+# Backend
+backend/
+*.log

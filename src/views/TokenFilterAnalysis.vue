@@ -86,14 +86,10 @@
         <a-input-number v-model="searchParams.limit" :min="1" placeholder="Limit" style="width: 100px;" />
       </a-form-item>
       <a-form-item label="Refresh(s)">
-        <a-input-number v-model="refreshInterval" :min="5" placeholder="Auto-Step interval" style="width: 100px;">
-             <template #prefix>Step(s)</template>
-        </a-input-number>
+        <a-input-number v-model="refreshInterval" :min="5" placeholder="Auto-Step interval" style="width: 120px;" />
       </a-form-item>
       <a-form-item label="Monitor(s)">
-        <a-input-number v-model="monitorInterval" :min="2" placeholder="Monitor interval" style="width: 100px;">
-             <template #prefix>Live(s)</template>
-        </a-input-number>
+        <a-input-number v-model="monitorInterval" :min="2" placeholder="Monitor interval" style="width: 120px;" />
       </a-form-item>
       <a-form-item>
         <a-checkbox v-model="isAutoStep">Auto Increase</a-checkbox>
@@ -299,7 +295,7 @@ const searchParams = ref({
 })
 
 const stepSize = ref(100)
-const stepSize = ref(100)
+
 interface HistoryRecord { id: number; time: string; range: string; buyTotal: string; sellTotal: string; buyCount: number; sellCount: number; netFlow: string; netAmount: number; isActive?: boolean }
 const historyRecords = ref<HistoryRecord[]>([])
 const activeHistoryId = ref<number | null>(null)
@@ -534,16 +530,18 @@ const startPolling = () => {
       // But maybe ensure we have an active row?
       fetchAllData(true) // Update current if exists
   }
-  
+
   // 1. Monitor Timer (Fast, e.g. 5s) -> Updates the Active Row with new data
+  const mDelay = Math.max(2000, (Number(monitorInterval.value) || 5) * 1000)
   monitorTimer = setInterval(() => {
       fetchAllData(true) // True = Update Active Row
-  }, (monitorInterval.value || 5) * 1000)
+  }, mDelay)
 
   // 2. Step Timer (Slow, e.g. 60s) -> Advances Block & Creates New Row
+  const sDelay = Math.max(5000, (Number(refreshInterval.value) || 60) * 1000)
   stepTimer = setInterval(() => {
     executeAutoStep()
-  }, (refreshInterval.value || 60) * 1000)
+  }, sDelay)
 }
 
 const stopPolling = () => {
@@ -864,8 +862,8 @@ const restoreState = () => {
     try {
       const state = JSON.parse(saved)
       if (state.searchParams) searchParams.value = { ...searchParams.value, ...state.searchParams }
-      if (state.stepSize) stepSize.value = state.stepSize
-      if (state.refreshInterval) refreshInterval.value = state.refreshInterval
+      if (state.stepSize) stepSize.value = Number(state.stepSize) || 100
+      if (state.refreshInterval) refreshInterval.value = Math.max(5, Number(state.refreshInterval) || 60)
       if (state.isAutoStep !== undefined) isAutoStep.value = state.isAutoStep
       if (state.buyAddresses && Array.isArray(state.buyAddresses)) {
         buyAddresses.value = state.buyAddresses.map((p: any) => ({ from: p.from || '', to: p.to || '', data: [], loading: false }))
@@ -875,7 +873,7 @@ const restoreState = () => {
         sellAddresses.value = state.sellAddresses.map((p: any) => ({ from: p.from || '', to: p.to || '', data: [], loading: false }))
         if (sellAddresses.value.length === 0) sellAddresses.value = [{ from: '', to: '', data: [], loading: false }]
       }
-      if (state.monitorInterval) monitorInterval.value = state.monitorInterval
+      if (state.monitorInterval) monitorInterval.value = Math.max(2, Number(state.monitorInterval) || 5)
     } catch (e) { console.error('Failed to restore form state', e) }
   }
 }
