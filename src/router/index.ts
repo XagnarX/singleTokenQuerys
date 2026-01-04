@@ -3,6 +3,10 @@ import TokenFilterAnalysis from '@/views/TokenFilterAnalysis.vue'
 
 const routes = [
   {
+    path: '/',
+    redirect: '/token-filter-analysis'
+  },
+  {
     path: '/token-filter-analysis',
     name: 'TokenFilterAnalysis',
     component: TokenFilterAnalysis

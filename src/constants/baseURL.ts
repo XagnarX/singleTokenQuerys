@@ -6,7 +6,7 @@
 
 // Available server options
 const SERVERS = {
-  localhost: 'http://localhost:8081/',
+  localhost: 'http://localhost:8080/',
   apiLocal: 'http://api.local:8080/',
   remote: 'https://bscmontiorb.vip.cpolar.cn/',
 }
@@ -14,8 +14,7 @@ const SERVERS = {
 // ============================================
 // CHANGE THIS LINE TO SWITCH SERVERS
 // ============================================
-export const baseURL = SERVERS.localhost
-// export const baseURL = SERVERS.apiLocal
+export const baseURL = SERVERS.apiLocal
 // export const baseURL = SERVERS.remote
 // ============================================
 
