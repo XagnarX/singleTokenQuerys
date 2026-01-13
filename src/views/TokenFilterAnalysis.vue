@@ -911,7 +911,7 @@ const detailModalVisible = ref(false)
 const currentDetailRecord = ref<any>(null)
 const similarRecords = ref<any[]>([])
 
-const showRecordDetail = async (record: any, type: 'from' | 'to') => {
+const showRecordDetail = async (record: any, _type: 'from' | 'to') => {
     currentDetailRecord.value = record
     detailModalVisible.value = true
     
