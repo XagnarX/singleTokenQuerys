@@ -308,7 +308,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, watch, onMounted } from 'vue'
+import { ref, computed, onUnmounted, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { IconCopy, IconPlus, IconDelete, IconTag, IconEye, IconLeft, IconRight, IconDown, IconNotification } from '@arco-design/web-vue/es/icon'
 import axios from 'axios'
@@ -861,7 +861,7 @@ const showTagModal = async (address: string) => {
 const loadAddressTags = async () => {
   try {
     const res = await getAddressTags(currentAddress.value)
-    if (res.code === 200) {
+    if ((res as any).code === 200) {
       currentAddressTags.value = res.data || []
     }
   } catch (e) { console.error(e) }
@@ -870,7 +870,7 @@ const loadAddressTags = async () => {
 const loadUniqueTags = async () => {
     try {
         const res = await getUniqueAddressTags()
-        if (res.code === 200) {
+        if ((res as any).code === 200) {
             uniqueTags.value = res.data || []
         }
     } catch (e) { console.error(e) }
@@ -920,7 +920,7 @@ const showRecordDetail = async (record: any, type: 'from' | 'to') => {
     // Or just simple client side filter if we had all data? We don't.
     // Let's make a fresh call.
     try {
-       const addr = type === 'from' ? record.from_address : record.to_address
+       // const addr = type === 'from' ? record.from_address : record.to_address
        // Reuse existing API but we need a flexible query.
        // Construct a param set for just this address?
        // Not supported well by existing UI params.
