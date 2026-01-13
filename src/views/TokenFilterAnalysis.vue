@@ -671,6 +671,7 @@ const fetchAllData = async (isUpdate: boolean = false) => {
   try {
     const params = buildRequestParams('all')
     const tableResult = await getTokenFilterAnalysisAggregate(params)
+    
     if ((tableResult as any).code !== 200) throw new Error((tableResult as any).message || 'Query failed')
     const data = (tableResult as any).data
     
@@ -721,12 +722,12 @@ const fetchAllData = async (isUpdate: boolean = false) => {
             // Sum up from groups (assuming backend standard format)
             if (statsData.buyGroups) {
                 statsData.buyGroups.forEach((g: any) => {
-                    if (g.data) bTotal += g.data.length
+                    if (g.transactions || g.data) bTotal += (g.transactions || g.data).length
                 })
             }
             if (statsData.sellGroups) {
                 statsData.sellGroups.forEach((g: any) => {
-                    if (g.data) sTotal += g.data.length
+                    if (g.transactions || g.data) sTotal += (g.transactions || g.data).length
                 })
             }
             
@@ -741,14 +742,14 @@ const fetchAllData = async (isUpdate: boolean = false) => {
             if (buyAddresses.value.length > 0 && statsData.buyGroups) {
                 buyAddresses.value.forEach((pair, idx) => {
                     if (statsData.buyGroups[idx]) {
-                         pair.data = statsData.buyGroups[idx].data || []
+                         pair.data = statsData.buyGroups[idx].transactions || statsData.buyGroups[idx].data || []
                     }
                 })
             }
             if (sellAddresses.value.length > 0 && statsData.sellGroups) {
                 sellAddresses.value.forEach((pair, idx) => {
                     if (statsData.sellGroups[idx]) {
-                         pair.data = statsData.sellGroups[idx].data || []
+                         pair.data = statsData.sellGroups[idx].transactions || statsData.sellGroups[idx].data || []
                     }
                 })
             }
