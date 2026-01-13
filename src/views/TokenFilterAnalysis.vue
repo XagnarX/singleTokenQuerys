@@ -4,28 +4,7 @@
       <h1>Token Filter Analysis</h1>
     </div>
 
-    <a-form layout="inline" :model="searchParams" class="search-form">
-      <a-form-item label="Token Name">
-        <a-input v-model="searchParams.tokenName" placeholder="Name" style="width: 120px;" allow-clear />
-      </a-form-item>
-      <a-form-item label="Contract Address" required>
-        <a-input v-model="searchParams.contractAddress" placeholder="Enter token contract address" style="width: 420px;" allow-clear />
-      </a-form-item>
-      <a-form-item>
-        <a-space>
-          <a-button type="primary" status="success" @click="saveConfig">Save Config</a-button>
-          <a-dropdown @select="loadConfig">
-             <a-button>Load Config <icon-down /></a-button>
-             <template #content>
-                 <a-doption v-for="cfg in savedConfigs" :key="cfg.address" :value="cfg.address">
-                   {{ cfg.name || 'Unnamed' }} ({{ shortHash(cfg.address) }})
-                 </a-doption>
-             </template>
-          </a-dropdown>
-          <a-button @click="showNotifyModal"><icon-notification /> Notify Settings</a-button>
-        </a-space>
-      </a-form-item>
-    </a-form>
+
 
     <!-- The New Feature: Block Stepping -->
     <a-card class="stepping-card" title="Block Stepping (The New Feature)">
@@ -43,11 +22,34 @@
     </a-card>
 
     <!-- The New Feature: History Log -->
-    <a-card class="history-card" title="查询历史记录 (The New Feature)" v-if="historyRecords.length > 0">
+    <a-card class="history-card">
+      <template #title>
+        <div style="display: flex; align-items: center; gap: 10px;">
+           <span>查询历史记录 (The New Feature)</span>
+           <a-input v-model="searchParams.contractAddress" placeholder="Enter contract address" style="width: 320px; border: 2px solid #F7BA1E;" allow-clear />
+           <a-input v-model="searchParams.tokenName" placeholder="Mark" style="width: 120px; border: 2px solid #00B42A;" allow-clear />
+        </div>
+      </template>
       <template #extra>
-        <a-button type="text" size="small" @click="toggleHistorySize" style="margin-right: 8px;">{{ historyPageSize === 5 ? '展开列表' : '收起列表' }}</a-button>
-        <a-button type="text" size="small" @click="downloadHistory" style="margin-right: 8px;">下载记录</a-button>
-        <a-button type="text" status="danger" size="small" @click="clearHistory">清空记录</a-button>
+        <a-space>
+          <a-button type="primary" status="success" size="small" @click="saveConfig">Save</a-button>
+          <a-dropdown @select="loadConfig">
+             <a-button size="small">Load <icon-down /></a-button>
+             <template #content>
+                 <a-doption v-for="cfg in savedConfigs" :key="cfg.address" :value="cfg.address">
+                   <div style="display: flex; justify-content: space-between; align-items: center; min-width: 200px">
+                     <span>{{ cfg.name || 'Unnamed' }} ({{ shortHash(cfg.address) }})</span>
+                     <icon-delete @click.stop="removeConfig(cfg.address)" style="color: #f53f3f; cursor: pointer; padding: 4px;" />
+                   </div>
+                 </a-doption>
+             </template>
+          </a-dropdown>
+          <a-button size="small" @click="showNotifyModal"><icon-notification /></a-button>
+          <a-divider direction="vertical" />
+          <a-button type="text" size="small" @click="toggleHistorySize">{{ historyPageSize === 5 ? '展开列表' : '收起列表' }}</a-button>
+          <a-button type="text" size="small" @click="downloadHistory">下载记录</a-button>
+          <a-button type="text" status="danger" size="small" @click="clearHistory">清空记录</a-button>
+        </a-space>
       </template>
       <a-table :data="historyRecords" :pagination="{ pageSize: historyPageSize }" size="small" :bordered="false" :row-class="rowClass">
         <template #columns>
@@ -381,14 +383,18 @@ const addToHistory = (overrideBuyCount?: number, overrideSellCount?: number, isU
   const safeBuy = parseFloat(cleanBuyTotal) || 0
   const safeSell = parseFloat(cleanSellTotal) || 0
   const safeNet = safeBuy - safeSell
-  const safeNetDisplay = safeNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+  
+  // No decimals for history display
+  const safeNetDisplay = Math.floor(safeNet).toLocaleString()
+  const displayBuy = Math.floor(safeBuy).toLocaleString()
+  const displaySell = Math.floor(safeSell).toLocaleString()
 
   const record: HistoryRecord = {
     id: activeHistoryId.value && isUpdate ? activeHistoryId.value : Date.now(),
     time: activeHistoryId.value && isUpdate ? (historyRecords.value.find(r => r.id === activeHistoryId.value)?.time || now) : now + ' (Live)',
     range: range,
-    buyTotal: buyTotalAmount.value,
-    sellTotal: sellTotalAmount.value,
+    buyTotal: displayBuy,
+    sellTotal: displaySell,
     buyCount: buyCount || 0,
     sellCount: sellCount || 0,
     netFlow: safeNetDisplay,
@@ -474,24 +480,20 @@ const downloadHistory = async () => {
 
   const now = dayjs().format('YYYY-MM-DD HH:mm:ss')
   let content = '================================================================================\n'
-  content += '                            代币分析历史记录\n'
+  content += '====\n'
+  content += '                                代币分析历史记录\n'
   content += '================================================================================\n'
-  content += `导出时间: ${now}\n`
-  content += `代币名称: ${searchParams.value.tokenName || 'Unknown'}\n`
-  content += `合约地址: ${searchParams.value.contractAddress}\n\n`
+  content += '=====\n'
+  content += `导出时间: ${now}\n\n`
 
   // Reverse order: Earliest to Latest
   const reversedRecords = [...historyRecords.value].reverse()
 
-  reversedRecords.forEach((record, index) => {
-    const sign = record.netAmount >= 0 ? '+' : ''
-    content += `[记录 ${index + 1}]\n`
-    content += `时间:       ${record.time}\n`
-    content += `范围:       ${record.range}\n`
-    content += `买入:       笔数: ${record.buyCount.toString().padEnd(5)} 金额: ${record.buyTotal}\n`
-    content += `卖出:       笔数: ${record.sellCount.toString().padEnd(5)} 金额: ${record.sellTotal}\n`
-    content += `净流入:     ${sign}${record.netFlow}\n\n`
-    content += '--------------------------------------------------------------------------------\n'
+  reversedRecords.forEach((record) => {
+    const cleanTime = record.time.replace(' (Live)', '')
+    content += `时间:       ${cleanTime}\n`
+    content += `买入:       笔数: ${record.buyCount}\n`
+    content += `卖出:       笔数: ${record.sellCount}\n`
   })
 
   try {
@@ -813,8 +815,8 @@ const updateTotalAmounts = () => {
     // Calculated from buyAddresses/sellAddresses data which is populated by stats request
   const bTotal = buyAddresses.value.reduce((sum, p) => sum + (p.data || []).reduce((s: number, t: any) => s + Number(t.amount_decimal || t.amount || 0), 0), 0)
   const sTotal = sellAddresses.value.reduce((sum, p) => sum + (p.data || []).reduce((s: number, t: any) => s + Number(t.amount_decimal || t.amount || 0), 0), 0)
-  buyTotalAmount.value = bTotal.toLocaleString()
-  sellTotalAmount.value = sTotal.toLocaleString()
+  buyTotalAmount.value = Math.floor(bTotal).toLocaleString()
+  sellTotalAmount.value = Math.floor(sTotal).toLocaleString()
 }
 
 const onPageChange = (page: number) => {
@@ -860,7 +862,7 @@ const netAmount = computed(() => {
 })
 
 const netAmountDisplay = computed(() => {
-  return Math.abs(netAmount.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })
+  return Math.abs(Math.floor(netAmount.value)).toLocaleString()
 })
 
 
@@ -1008,6 +1010,12 @@ const loadConfig = (address: any) => {
         if (config.notifyForm) notifyForm.value = config.notifyForm
         Message.success('Configuration loaded')
     }
+}
+
+const removeConfig = (address: any) => {
+    savedConfigs.value = savedConfigs.value.filter(c => c.address !== address)
+    localStorage.setItem(CONFIGS_KEY, JSON.stringify(savedConfigs.value))
+    Message.success('Configuration deleted')
 }
 
 // --- Lifecycle ---
