@@ -677,10 +677,30 @@ const fetchAllData = async (isUpdate: boolean = false) => {
     // Update pagination metadata
     if (data.pagination) {
        pagination.value.total = data.pagination.total
+    } else if (data.summary && data.summary.totalTransactionCount) {
+       pagination.value.total = data.summary.totalTransactionCount
     }
     
     // Update transactions table (paginated slice)
-    transactions.value = (data.transactions || []).map((t: any) => ({ ...t, amount: String(t.amount_decimal || t.amount || '0') }))
+    let rawTransactions = data.transactions || []
+    
+    // Fallback: If no flat transactions, collect from groups
+    if (rawTransactions.length === 0 && (data.buyGroups || data.sellGroups)) {
+        if (data.buyGroups) {
+            data.buyGroups.forEach((g: any) => {
+                if (g.transactions) rawTransactions.push(...g.transactions)
+            })
+        }
+        if (data.sellGroups) {
+            data.sellGroups.forEach((g: any) => {
+                if (g.transactions) rawTransactions.push(...g.transactions)
+            })
+        }
+        // Sort by timestamp desc to ensure correct order
+        rawTransactions.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    }
+
+    transactions.value = rawTransactions.map((t: any) => ({ ...t, amount: String(t.amount_decimal || t.amount || '0') }))
 
     // --- Frontend-Only Stats Calculation (Twin Request Strategy) ---
     // Since backend summary doesn't support totals in pagination mode, we must fetch ALL data separately.
