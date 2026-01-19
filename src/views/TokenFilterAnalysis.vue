@@ -24,11 +24,7 @@
     <!-- The New Feature: History Log -->
     <a-card class="history-card">
       <template #title>
-        <div style="display: flex; align-items: center; gap: 10px;">
-           <span>查询历史记录 (The New Feature)</span>
-           <a-input v-model="searchParams.contractAddress" placeholder="Enter contract address" style="width: 320px; border: 2px solid #F7BA1E;" allow-clear />
-           <a-input v-model="searchParams.tokenName" placeholder="Mark" style="width: 120px; border: 2px solid #00B42A;" allow-clear />
-        </div>
+        <span>查询历史记录 (The New Feature)</span>
       </template>
       <template #extra>
         <a-space>
@@ -51,6 +47,10 @@
           <a-button type="text" status="danger" size="small" @click="clearHistory">清空记录</a-button>
         </a-space>
       </template>
+      <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 10px; padding: 0 4px;">
+         <a-input v-model="searchParams.contractAddress" placeholder="Enter contract address" style="width: 320px; border: 2px solid #F7BA1E;" allow-clear />
+         <a-input v-model="searchParams.tokenName" placeholder="Mark" style="width: 120px; border: 2px solid #00B42A;" allow-clear />
+      </div>
       <a-table :data="historyRecords" :pagination="{ pageSize: historyPageSize }" size="small" :bordered="false" :row-class="rowClass">
         <template #columns>
           <a-table-column title="时间" data-index="time" :width="160">
@@ -72,7 +72,7 @@
                <div>金额: {{ record.sellTotal }}</div>
             </template>
           </a-table-column>
-          <a-table-column title="净流入" data-index="netFlow">
+          <a-table-column title="净流入" data-index="netFlow" :width="120">
             <template #cell="{ record }">
               <span :style="{ color: record.netAmount >= 0 ? '#00b42a' : '#f53f3f' }">{{ record.netFlow }}</span>
             </template>
@@ -291,6 +291,12 @@
 
     <a-modal v-model:visible="notifyModalVisible" title="Telegram Notification Settings" @ok="handleNotifyModalOk" @cancel="notifyModalVisible = false">
       <a-form :model="notifyForm" layout="vertical">
+        <a-form-item label="Notification Channels">
+           <a-space>
+             <a-checkbox v-model="notifyForm.useDesktopNotify" @change="requestDesktopPermission">Enable Desktop Notification (Mac System)</a-checkbox>
+             <a-button type="outline" size="mini" @click="testDesktopNotification">Test Notify</a-button>
+           </a-space>
+        </a-form-item>
         <a-form-item label="Telegram Bot Token">
           <a-input v-model="notifyForm.botToken" placeholder="e.g. 123456789:ABCdef..." />
         </a-form-item>
@@ -302,6 +308,12 @@
         </a-form-item>
         <a-form-item label="Loss Threshold (USDT/Amount)">
           <a-input-number v-model="notifyForm.lossThreshold" placeholder="Notify if Net Flow < -X" />
+        </a-form-item>
+        <a-form-item label="Single Transaction Threshold (Amount)">
+          <a-input-number v-model="notifyForm.singleAmountThreshold" placeholder="Notify if any tx amount > X" />
+        </a-form-item>
+        <a-form-item label="Total Transaction Count Threshold">
+          <a-input-number v-model="notifyForm.txCountThreshold" placeholder="Notify if total count > X" />
         </a-form-item>
         <a-alert>Notifications are sent when Net Flow crosses these thresholds.</a-alert>
       </a-form>
@@ -432,7 +444,41 @@ const addToHistory = (overrideBuyCount?: number, overrideSellCount?: number, isU
 
 const lastNotifyTime = ref(0)
 const notifyModalVisible = ref(false)
-const notifyForm = ref({ botToken: '', chatId: '', profitThreshold: null as number | null, lossThreshold: null as number | null })
+const notifyForm = ref({ botToken: '', chatId: '', profitThreshold: null as number | null, lossThreshold: null as number | null, singleAmountThreshold: null as number | null, txCountThreshold: null as number | null, useDesktopNotify: false })
+
+const requestDesktopPermission = async (val: boolean | (string | number | boolean)[]) => {
+  if (val === true) {
+    if (Notification.permission !== 'granted') {
+       const permission = await Notification.requestPermission()
+       if (permission !== 'granted') {
+         Message.warning('Desktop Notification permission denied')
+         notifyForm.value.useDesktopNotify = false
+       } else {
+         Message.success('Desktop Notification enabled')
+       }
+    }
+  }
+}
+
+const testDesktopNotification = async () => {
+    if (!notifyForm.value.useDesktopNotify) {
+        Message.warning('Please enable Desktop Notification first')
+        return
+    }
+    if (Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission()
+        if (permission !== 'granted') {
+            Message.warning('Permission denied')
+            return
+        }
+    }
+    
+    new Notification('Test Analysis Alert', {
+        body: '🚀 This is a test notification from Token Filter Analysis',
+        icon: '/favicon.ico'
+    })
+    Message.success('Test notification sent')
+}
 
 const showNotifyModal = () => { notifyModalVisible.value = true }
 const handleNotifyModalOk = () => { notifyModalVisible.value = false; saveState() } // Save to localStorage
@@ -449,14 +495,53 @@ const checkNotification = async (netAmount: number, tokenName: string) => {
          msg = `🔻 <b>Loss Alert</b> for ${tokenName}\nNet Flow: ${netAmount.toFixed(2)}\nThreshold: -${notifyForm.value.lossThreshold}`
     }
 
+    // Single Amount Check
+    if (notifyForm.value.singleAmountThreshold !== null) {
+        const threshold = notifyForm.value.singleAmountThreshold
+        // Check recent buy/sell addresses data
+        const maxBuy = Math.max(...buyAddresses.value.map(p => Math.max(...(p.data || []).map((t: any) => Number(t.amount_decimal || t.amount || 0)), 0)))
+        const maxSell = Math.max(...sellAddresses.value.map(p => Math.max(...(p.data || []).map((t: any) => Number(t.amount_decimal || t.amount || 0)), 0)))
+        
+        if (maxBuy >= threshold) {
+            msg = `🐳 <b>Whale Buy Alert</b> for ${tokenName}\nAmount: ${maxBuy.toFixed(2)}\nThreshold: ${threshold}`
+        }
+        if (maxSell >= threshold) {
+            const newMsg = `🐳 <b>Whale Sell Alert</b> for ${tokenName}\nAmount: ${maxSell.toFixed(2)}\nThreshold: ${threshold}`
+            msg = msg ? msg + '\n\n' + newMsg : newMsg
+        }
+    }
+
+    // Tx Count Check
+    if (notifyForm.value.txCountThreshold !== null) {
+         // Count is calculated in addToHistory but not passed here directly as total.
+         // Let's re-calculate or accept args. 
+         // Actually checkNotification is called from addToHistory, so we can pass totals or re-calc.
+         // Let's re-calc from data to be safe/consistent.
+         const totalCount = buyAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0) + 
+                            sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+         
+         if (totalCount >= notifyForm.value.txCountThreshold) {
+             const newMsg = `📈 <b>High Activity Alert</b> for ${tokenName}\nTotal Transactions: ${totalCount}\nThreshold: ${notifyForm.value.txCountThreshold}`
+             msg = msg ? msg + '\n\n' + newMsg : newMsg
+         }
+    }
+
     if (msg) {
+        // Desktop Notification
+        if (notifyForm.value.useDesktopNotify && Notification.permission === 'granted') {
+            new Notification(tokenName + ' Analysis Alert', {
+                body: msg.replace(/<[^>]*>?/gm, ''), // Strip HTML tags for desktop
+                icon: '/favicon.ico' // Optional
+            })
+        }
+
         try {
             const url = `https://api.telegram.org/bot${notifyForm.value.botToken}/sendMessage`
             await axios.post(url, { chat_id: notifyForm.value.chatId, text: msg, parse_mode: 'HTML' })
             lastNotifyTime.value = now
-            Message.success('Telegram notification sent')
+            Message.success('Notification sent')
         } catch (e) {
-            console.error('Telegram Notify Error:', e)
+            console.error('Notify Error:', e)
         }
     }
 }
