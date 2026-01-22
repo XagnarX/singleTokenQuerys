@@ -289,33 +289,37 @@
       </div>
     </a-modal>
 
-    <a-modal v-model:visible="notifyModalVisible" title="Telegram Notification Settings" @ok="handleNotifyModalOk" @cancel="notifyModalVisible = false">
+    <a-modal v-model:visible="notifyModalVisible" title="通知设置 (Notification Settings)" @ok="handleNotifyModalOk" @cancel="notifyModalVisible = false">
       <a-form :model="notifyForm" layout="vertical">
-        <a-form-item label="Notification Channels">
+        <a-form-item label="币种 (Token Name)">
+           <a-input v-model="notifyForm.tokenMark" placeholder="例如: BTC" />
+        </a-form-item>
+        <a-form-item label="通知方式">
            <a-space>
-             <a-checkbox v-model="notifyForm.useDesktopNotify" @change="requestDesktopPermission">Enable Desktop Notification (Mac System)</a-checkbox>
-             <a-button type="outline" size="mini" @click="testDesktopNotification">Test Notify</a-button>
+             <a-checkbox v-model="notifyForm.useDesktopNotify" @change="requestDesktopPermission">启用桌面通知 (Mac 系统)</a-checkbox>
+             <a-button type="outline" size="mini" @click="testDesktopNotification">测试通知</a-button>
            </a-space>
         </a-form-item>
-        <a-form-item label="Telegram Bot Token">
-          <a-input v-model="notifyForm.botToken" placeholder="e.g. 123456789:ABCdef..." />
+        <a-form-item label="Telegram 设置">
+           <a-space direction="vertical" style="width: 100%">
+             <a-input v-model="notifyForm.botToken" placeholder="Bot Token (e.g. 123456789:ABCdef...)" />
+             <a-input v-model="notifyForm.chatId" placeholder="Chat ID (e.g. -100123456789)" />
+             <a-button type="outline" status="warning" size="mini" @click="testTelegramNotification" style="width: 120px">测试 Telegram</a-button>
+           </a-space>
         </a-form-item>
-        <a-form-item label="Chat ID">
-          <a-input v-model="notifyForm.chatId" placeholder="e.g. -100123456789" />
+        <a-form-item label="止盈阈值 (USDT/数量)">
+          <a-input-number v-model="notifyForm.profitThreshold" placeholder="净流入 > X 时通知" />
         </a-form-item>
-        <a-form-item label="Profit Threshold (USDT/Amount)">
-          <a-input-number v-model="notifyForm.profitThreshold" placeholder="Notify if Net Flow > X" />
+        <a-form-item label="止损阈值 (USDT/数量)">
+          <a-input-number v-model="notifyForm.lossThreshold" placeholder="净流入 < -X 时通知" />
         </a-form-item>
-        <a-form-item label="Loss Threshold (USDT/Amount)">
-          <a-input-number v-model="notifyForm.lossThreshold" placeholder="Notify if Net Flow < -X" />
+        <a-form-item label="单笔交易阈值 (数量)">
+          <a-input-number v-model="notifyForm.singleAmountThreshold" placeholder="任意交易数量 > X 时通知" />
         </a-form-item>
-        <a-form-item label="Single Transaction Threshold (Amount)">
-          <a-input-number v-model="notifyForm.singleAmountThreshold" placeholder="Notify if any tx amount > X" />
+        <a-form-item label="总交易笔数阈值">
+          <a-input-number v-model="notifyForm.txCountThreshold" placeholder="总笔数 > X 时通知" />
         </a-form-item>
-        <a-form-item label="Total Transaction Count Threshold">
-          <a-input-number v-model="notifyForm.txCountThreshold" placeholder="Notify if total count > X" />
-        </a-form-item>
-        <a-alert>Notifications are sent when Net Flow crosses these thresholds.</a-alert>
+        <a-alert>当各项指标达到设定阈值时发送通知。</a-alert>
       </a-form>
     </a-modal>
   </div>
@@ -444,55 +448,98 @@ const addToHistory = (overrideBuyCount?: number, overrideSellCount?: number, isU
 
 const lastNotifyTime = ref(0)
 const notifyModalVisible = ref(false)
-const notifyForm = ref({ botToken: '', chatId: '', profitThreshold: null as number | null, lossThreshold: null as number | null, singleAmountThreshold: null as number | null, txCountThreshold: null as number | null, useDesktopNotify: false })
+const notifyForm = ref({ botToken: '', chatId: '', tokenMark: '', profitThreshold: null as number | null, lossThreshold: null as number | null, singleAmountThreshold: null as number | null, txCountThreshold: null as number | null, useDesktopNotify: false })
 
 const requestDesktopPermission = async (val: boolean | (string | number | boolean)[]) => {
   if (val === true) {
     if (Notification.permission !== 'granted') {
        const permission = await Notification.requestPermission()
        if (permission !== 'granted') {
-         Message.warning('Desktop Notification permission denied')
+         Message.warning('桌面通知权限被拒绝 (Permission denied)')
          notifyForm.value.useDesktopNotify = false
        } else {
-         Message.success('Desktop Notification enabled')
+         Message.success('桌面通知已启用')
        }
     }
   }
 }
 
+const notificationSound = new Audio('/alert.wav')
+
 const testDesktopNotification = async () => {
     if (!notifyForm.value.useDesktopNotify) {
-        Message.warning('Please enable Desktop Notification first')
+        Message.warning('请先启用桌面通知')
         return
     }
     if (Notification.permission !== 'granted') {
         const permission = await Notification.requestPermission()
         if (permission !== 'granted') {
-            Message.warning('Permission denied')
+            Message.warning('权限被拒绝')
             return
         }
     }
     
+    try {
+      // Play twice loop
+      notificationSound.currentTime = 0
+      await notificationSound.play()
+      notificationSound.onended = () => {
+          notificationSound.currentTime = 0
+          notificationSound.play()
+          notificationSound.onended = null
+      }
+    } catch (e) {
+      console.error('Audio play failed', e)
+    }
+
     new Notification('Test Analysis Alert', {
-        body: '🚀 This is a test notification from Token Filter Analysis',
+        body: '🚀 这是一个测试提醒 (Test Notification)',
         icon: '/favicon.ico'
     })
-    Message.success('Test notification sent')
+    new Notification('Test Analysis Alert', {
+        body: '🚀 这是一个测试提醒 (Test Notification)',
+        icon: '/favicon.ico'
+    })
+    Message.success('测试通知已发送')
+}
+
+const testTelegramNotification = async () => {
+    if (!notifyForm.value.botToken || !notifyForm.value.chatId) {
+        Message.warning('请先填写 Robot Token 和 Chat ID')
+        return
+    }
+    const msg = `🚀 <b>测试消息 (Test Message)</b>\n来自: Token Filter Analysis\n时间: ${dayjs().format('HH:mm:ss')}`
+    try {
+        // Frontend Only: Use GET with no-cors to bypass browser restrictions
+        // Note: Response will be opaque (we assume success if no network error)
+        const encodedMsg = encodeURIComponent(msg)
+        const url = `https://api.telegram.org/bot${notifyForm.value.botToken}/sendMessage?chat_id=${notifyForm.value.chatId}&text=${encodedMsg}&parse_mode=HTML`
+        
+        await fetch(url, { mode: 'no-cors' })
+        
+        Message.success('已发送请求 (Frontend Mode)')
+    } catch (e) {
+        console.error('Telegram Test Error:', e)
+        Message.error('发送失败: ' + e)
+    }
 }
 
 const showNotifyModal = () => { notifyModalVisible.value = true }
 const handleNotifyModalOk = () => { notifyModalVisible.value = false; saveState() } // Save to localStorage
 
 const checkNotification = async (netAmount: number, tokenName: string) => {
-    if (!notifyForm.value.botToken || !notifyForm.value.chatId) return
+    // if (!notifyForm.value.botToken || !notifyForm.value.chatId) return // Telegram required check removed
     const now = Date.now()
     if (now - lastNotifyTime.value < 60000) return // Throttle: 1 min
 
+    // Use custom mark if set, otherwise fallback to passed tokenName
+    const displayToken = notifyForm.value.tokenMark || tokenName
+
     let msg = ''
     if (notifyForm.value.profitThreshold !== null && netAmount >= notifyForm.value.profitThreshold) {
-        msg = `🚀 <b>Profit Alert</b> for ${tokenName}\nNet Flow: +${netAmount.toFixed(2)}\nThreshold: ${notifyForm.value.profitThreshold}`
+        msg = `🚀 <b>盈利提醒 (Profit Alert)</b>: ${displayToken}\n净流入: +${netAmount.toFixed(2)}\n阈值: ${notifyForm.value.profitThreshold}`
     } else if (notifyForm.value.lossThreshold !== null && netAmount <= -notifyForm.value.lossThreshold) {
-         msg = `🔻 <b>Loss Alert</b> for ${tokenName}\nNet Flow: ${netAmount.toFixed(2)}\nThreshold: -${notifyForm.value.lossThreshold}`
+         msg = `🔻 <b>止损提醒 (Loss Alert)</b>: ${displayToken}\n净流入: ${netAmount.toFixed(2)}\n阈值: -${notifyForm.value.lossThreshold}`
     }
 
     // Single Amount Check
@@ -503,10 +550,10 @@ const checkNotification = async (netAmount: number, tokenName: string) => {
         const maxSell = Math.max(...sellAddresses.value.map(p => Math.max(...(p.data || []).map((t: any) => Number(t.amount_decimal || t.amount || 0)), 0)))
         
         if (maxBuy >= threshold) {
-            msg = `🐳 <b>Whale Buy Alert</b> for ${tokenName}\nAmount: ${maxBuy.toFixed(2)}\nThreshold: ${threshold}`
+            msg = `🐳 <b>巨鲸买入 (Whale Buy)</b>: ${displayToken}\n金额: ${maxBuy.toFixed(2)}\n阈值: ${threshold}`
         }
         if (maxSell >= threshold) {
-            const newMsg = `🐳 <b>Whale Sell Alert</b> for ${tokenName}\nAmount: ${maxSell.toFixed(2)}\nThreshold: ${threshold}`
+            const newMsg = `🐳 <b>巨鲸卖出 (Whale Sell)</b>: ${displayToken}\n金额: ${maxSell.toFixed(2)}\n阈值: ${threshold}`
             msg = msg ? msg + '\n\n' + newMsg : newMsg
         }
     }
@@ -521,7 +568,7 @@ const checkNotification = async (netAmount: number, tokenName: string) => {
                             sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
          
          if (totalCount >= notifyForm.value.txCountThreshold) {
-             const newMsg = `📈 <b>High Activity Alert</b> for ${tokenName}\nTotal Transactions: ${totalCount}\nThreshold: ${notifyForm.value.txCountThreshold}`
+             const newMsg = `📈 <b>高频交易提醒 (High Activity)</b>: ${displayToken}\n总交易数: ${totalCount}\n阈值: ${notifyForm.value.txCountThreshold}`
              msg = msg ? msg + '\n\n' + newMsg : newMsg
          }
     }
@@ -529,20 +576,52 @@ const checkNotification = async (netAmount: number, tokenName: string) => {
     if (msg) {
         // Desktop Notification
         if (notifyForm.value.useDesktopNotify && Notification.permission === 'granted') {
-            new Notification(tokenName + ' Analysis Alert', {
-                body: msg.replace(/<[^>]*>?/gm, ''), // Strip HTML tags for desktop
-                icon: '/favicon.ico' // Optional
-            })
+            // Debug: Show toast
+            Message.info('正在发送系统通知...')
+            
+            // 1. Show Notification Immediately
+            try {
+                console.log('Creating Notification object...')
+                const n = new Notification(displayToken + ' 提醒', {
+                    body: msg.replace(/<[^>]*>?/gm, ''),
+                    icon: '/favicon.ico',
+                    requireInteraction: true // Keep it on screen
+                })
+                n.onclick = () => window.focus()
+            } catch (e) {
+                console.error('Notification failed', e)
+                Message.error('无法发送桌面通知: ' + e)
+            }
+
+            // 2. Play Audio in background
+            try {
+              notificationSound.currentTime = 0
+              notificationSound.play().then(() => {
+                 notificationSound.onended = () => {
+                     notificationSound.currentTime = 0
+                     notificationSound.play()
+                     notificationSound.onended = null
+                 }
+              }).catch(e => console.error('Audio play error', e))
+            } catch (e) { console.error('Audio setup error', e) }
         }
 
-        try {
-            const url = `https://api.telegram.org/bot${notifyForm.value.botToken}/sendMessage`
-            await axios.post(url, { chat_id: notifyForm.value.chatId, text: msg, parse_mode: 'HTML' })
-            lastNotifyTime.value = now
-            Message.success('Notification sent')
-        } catch (e) {
-            console.error('Notify Error:', e)
+        // Telegram Logic
+        if (notifyForm.value.botToken && notifyForm.value.chatId) {
+            try {
+                // Frontend Only Mode
+                const encodedMsg = encodeURIComponent(msg)
+                const url = `https://api.telegram.org/bot${notifyForm.value.botToken}/sendMessage?chat_id=${notifyForm.value.chatId}&text=${encodedMsg}&parse_mode=HTML`
+                
+                // Fire and forget with no-cors
+                fetch(url, { mode: 'no-cors' }).catch(e => console.error('TG Send Error', e))
+                
+                Message.success('通知已发送 (Desktop + Telegram)')
+            } catch (e) {
+                console.error('Notify Error:', e)
+            }
         }
+        lastNotifyTime.value = now // Update time even if only desktop notify sent
     }
 }
 
