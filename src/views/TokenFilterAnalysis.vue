@@ -329,7 +329,7 @@
 import { ref, computed, onUnmounted, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { IconCopy, IconPlus, IconDelete, IconTag, IconEye, IconLeft, IconRight, IconDown, IconNotification } from '@arco-design/web-vue/es/icon'
-import axios from 'axios'
+
 import { getTokenFilterAnalysisAggregate, getAddressTags, addAddressTag, deleteAddressTag, getUniqueAddressTags } from '@/api/index'
 import { copyToClipboard } from '@/utils/clipboard'
 import dayjs from 'dayjs'
