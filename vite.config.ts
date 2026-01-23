@@ -8,7 +8,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     open: true,
-    allowedHosts: ['localhost', 'tkana.vip.cpolar.cn', 'api.local']
+    allowedHosts: ['localhost', 'tkana.vip.cpolar.cn', 'api.local'],
+    watch: {
+      ignored: ['**/backend/**', '**/node_modules/**']
+    }
   },
   resolve: {
     alias: {
