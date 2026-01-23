@@ -9,8 +9,9 @@ export default defineConfig({
     port: 5173,
     open: true,
     allowedHosts: ['localhost', 'tkana.vip.cpolar.cn', 'api.local'],
+    hmr: false,
     watch: {
-      ignored: ['**/backend/**', '**/node_modules/**']
+      ignored: ['**/backend/**', '**/node_modules/**', '**/.git/**', '**/tsconfig.json', '**/tsconfig.node.json']
     }
   },
   resolve: {
