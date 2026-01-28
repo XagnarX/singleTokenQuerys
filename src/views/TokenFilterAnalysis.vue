@@ -330,6 +330,10 @@ import { ref, computed, onUnmounted, onMounted } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { IconCopy, IconPlus, IconDelete, IconTag, IconEye, IconLeft, IconRight, IconDown, IconNotification } from '@arco-design/web-vue/es/icon'
 
+const props = defineProps<{
+  sessionId?: string
+}>()
+
 import { getTokenFilterAnalysisAggregate, getAddressTags, addAddressTag, deleteAddressTag, getUniqueAddressTags } from '@/api/index'
 import { copyToClipboard } from '@/utils/clipboard'
 import dayjs from 'dayjs'
@@ -1155,6 +1159,7 @@ const saveConfig = () => {
         }
         
         localStorage.setItem(CONFIGS_KEY, JSON.stringify(savedConfigs.value))
+        saveState() // Sync session stats
         Message.success('Configuration saved')
     } catch (e) {
         Message.error('Save failed')
@@ -1184,8 +1189,10 @@ const removeConfig = (address: any) => {
 
 // --- Lifecycle ---
 // Save state on unload
+// --- Lifecycle ---
+// Save state on unload
 const saveState = () => {
-  localStorage.setItem('tokanA_filter_form_data', JSON.stringify({
+  const data = {
     searchParams: searchParams.value,
     buyAddresses: buyAddresses.value,
     sellAddresses: sellAddresses.value,
@@ -1193,15 +1200,69 @@ const saveState = () => {
     refreshInterval: refreshInterval.value,
     monitorInterval: monitorInterval.value,
     isAutoStep: isAutoStep.value,
-    notifyForm: notifyForm.value
-  }))
+    notifyForm: notifyForm.value,
+    historyRecords: historyRecords.value,
+    activeHistoryId: activeHistoryId.value
+  }
+
+  if (props.sessionId) {
+      // Session Mode: Save to specific session key
+      localStorage.setItem(`tokanA_session_data_${props.sessionId}`, JSON.stringify(data))
+      
+      // Also update Summary in Dashboard list
+      try {
+          const sessionsStr = localStorage.getItem('tokanA_sessions')
+          if (sessionsStr) {
+              const sessions = JSON.parse(sessionsStr)
+              const idx = sessions.findIndex((s: any) => s.id === props.sessionId)
+              if (idx !== -1) {
+                  // Update stats
+                  // Calculate totals
+                  const bTotal = buyAddresses.value.reduce((sum, p) => sum + (p.data || []).reduce((s: number, t: any) => s + Number(t.amount_decimal || t.amount || 0), 0), 0)
+                  const sTotal = sellAddresses.value.reduce((sum, p) => sum + (p.data || []).reduce((s: number, t: any) => s + Number(t.amount_decimal || t.amount || 0), 0), 0)
+                  
+                  const bCount = buyAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+                  const sCount = sellAddresses.value.reduce((acc, p) => acc + (p.data?.length || 0), 0)
+                  
+                  sessions[idx].totalAmount = bTotal + sTotal // Or net? usually total volume or holding? Client said "Total Amount". Let's assume sum or net. Based on dashboard "Count/Total", usually Volume.
+                  // dashboard says "总金额". I'll sum buy+sell for volume.
+                  sessions[idx].count = bCount + sCount
+                  sessions[idx].tokenMark = notifyForm.value.tokenMark || sessions[idx].tokenMark // precise update
+                  
+                  localStorage.setItem('tokanA_sessions', JSON.stringify(sessions))
+              }
+          }
+      } catch (e) { console.error('Failed to update session summary', e) }
+
+  } else {
+      // Legacy Mode
+      localStorage.setItem('tokanA_filter_form_data', JSON.stringify(data))
+  }
 }
 
 const restoreState = () => {
-  const data = localStorage.getItem('tokanA_filter_form_data')
-  if (data) {
+  let dataStr: string | null = null
+  
+  if (props.sessionId) {
+      dataStr = localStorage.getItem(`tokanA_session_data_${props.sessionId}`)
+      // If no data yet (fresh session), init from session metadata
+      if (!dataStr) {
+          try {
+            const sessions = JSON.parse(localStorage.getItem('tokanA_sessions') || '[]')
+            const s = sessions.find((x: any) => x.id === props.sessionId)
+            if (s && s.tokenMark) {
+                notifyForm.value.tokenMark = s.tokenMark
+                searchParams.value.tokenName = s.tokenMark // Fix: Update UI input
+            }
+          } catch (e) { console.error(e) }
+      }
+  } else {
+      dataStr = localStorage.getItem('tokanA_filter_form_data')
+  }
+
+  if (dataStr) {
     try {
-      const parsed = JSON.parse(data)
+      const parsed = JSON.parse(dataStr)
       if (parsed.searchParams) searchParams.value = { ...searchParams.value, ...parsed.searchParams }
       if (parsed.buyAddresses) buyAddresses.value = parsed.buyAddresses
       if (parsed.sellAddresses) sellAddresses.value = parsed.sellAddresses
@@ -1209,7 +1270,10 @@ const restoreState = () => {
       if (parsed.refreshInterval) refreshInterval.value = parsed.refreshInterval
       if (parsed.monitorInterval) monitorInterval.value = parsed.monitorInterval
       if (parsed.isAutoStep !== undefined) isAutoStep.value = parsed.isAutoStep
+      if (parsed.isAutoStep !== undefined) isAutoStep.value = parsed.isAutoStep
       if (parsed.notifyForm) notifyForm.value = parsed.notifyForm
+      if (parsed.historyRecords) historyRecords.value = parsed.historyRecords
+      if (parsed.activeHistoryId) activeHistoryId.value = parsed.activeHistoryId
     } catch (e) {
       console.error('Failed to restore state', e)
     }

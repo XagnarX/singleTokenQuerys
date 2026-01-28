@@ -1,15 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import TokenFilterAnalysis from '@/views/TokenFilterAnalysis.vue'
+import Dashboard from '@/views/Dashboard.vue'
 
 const routes = [
   {
     path: '/',
-    redirect: '/token-filter-analysis'
+    name: 'Dashboard',
+    component: Dashboard
   },
   {
-    path: '/token-filter-analysis',
+    path: '/analysis/:sessionId',
     name: 'TokenFilterAnalysis',
-    component: TokenFilterAnalysis
+    component: TokenFilterAnalysis,
+    props: true
   }
 ]
 

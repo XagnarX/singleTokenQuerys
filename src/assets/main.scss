@@ -1,9 +1,38 @@
 @use "./base.scss";
 
-html, body, #app {
+html,
+body,
+#app {
   background: var(--color-bg-1, #232324) !important;
   color: var(--color-text-1, #fff);
   min-height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+// Global Text - Force White for Ver2
+body,
+.arco-typography,
+.arco-btn:not(.arco-btn-primary),
+.arco-form-item-label {
+  color: #FFFFFF !important;
+}
+
+// Ensure primary buttons (white background usually) have readable text (black) or keep them standard?
+// Client said "make all text and buttons elements in it white".
+// This usually implies white text on dark buttons or white buttons with black text?
+// Assuming Dark Theme background -> White Text is the goal.
+// "make buttons white" -> Maybe white background buttons?
+// I will assume text is white. If buttons need to be white surface, I will adjust.
+// "make all text ... white".
+
+// Highlight Class for "Count" (笔数)
+.text-highlight-red {
+  color: #FF4D4F !important;
+  font-weight: bold;
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
 }
