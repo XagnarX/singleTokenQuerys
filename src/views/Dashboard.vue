@@ -180,7 +180,7 @@ onMounted(() => {
   border: 2px solid #555; // Stronger border
   width: 100%; // Fill grid column
   box-sizing: border-box; // Include padding/border in width
-  height: 120px; 
+  height: 180px; 
   padding: 12px;
   border-radius: 6px;
   cursor: pointer;
