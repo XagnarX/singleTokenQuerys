@@ -1138,9 +1138,20 @@ const loadSavedConfigs = () => {
 const saveConfig = () => {
     if (!searchParams.value.contractAddress) { Message.warning('Contract Address required to save'); return }
     try {
+        let configName = searchParams.value.tokenName || 'Unnamed'
+        // If Session Mode, force use Session Name
+        if (props.sessionId) {
+             const sessionsStr = localStorage.getItem('tokanA_sessions')
+             if (sessionsStr) {
+                 const sessions = JSON.parse(sessionsStr)
+                 const s = sessions.find((x: any) => x.id === props.sessionId)
+                 if (s) configName = s.name
+             }
+        }
+
         const config = {
-            name: searchParams.value.tokenName || 'Unnamed',
-            address: searchParams.value.contractAddress,
+            name: configName,
+            address: searchParams.value.contractAddress, // Keep saving address, but key by Name implies we use Name to identifying
             params: searchParams.value,
             stepSize: stepSize.value,
             refreshInterval: refreshInterval.value,
@@ -1148,10 +1159,13 @@ const saveConfig = () => {
             isAutoStep: isAutoStep.value,
             buyAddresses: buyAddresses.value,
             sellAddresses: sellAddresses.value,
-            notifyForm: notifyForm.value
+            notifyForm: notifyForm.value,
+            // Tag it with session ID for strict mapping if needed, but Name was requested
+            sessionId: props.sessionId
         }
         
-        const existingIdx = savedConfigs.value.findIndex(c => c.address === config.address)
+        // Check if config with this NAME exists (Session Name driven)
+        const existingIdx = savedConfigs.value.findIndex(c => c.name === config.name)
         if (existingIdx !== -1) {
             savedConfigs.value[existingIdx] = config
         } else {
@@ -1227,7 +1241,11 @@ const saveState = () => {
                   sessions[idx].totalAmount = bTotal + sTotal // Or net? usually total volume or holding? Client said "Total Amount". Let's assume sum or net. Based on dashboard "Count/Total", usually Volume.
                   // dashboard says "总金额". I'll sum buy+sell for volume.
                   sessions[idx].count = bCount + sCount
+                  sessions[idx].count = bCount + sCount
+                  sessions[idx].buyCount = bCount // Add this
+                  sessions[idx].sellCount = sCount // Add this
                   sessions[idx].tokenMark = notifyForm.value.tokenMark || sessions[idx].tokenMark // precise update
+                  sessions[idx].contractAddress = searchParams.value.contractAddress // Sync Address to Dashboard
                   
                   localStorage.setItem('tokanA_sessions', JSON.stringify(sessions))
               }
@@ -1258,6 +1276,31 @@ const restoreState = () => {
       }
   } else {
       dataStr = localStorage.getItem('tokanA_filter_form_data')
+  }
+
+  // Auto-load "Fill-in Cache" by Session Name
+  if (props.sessionId) {
+      setTimeout(() => {
+          try {
+             const sessions = JSON.parse(localStorage.getItem('tokanA_sessions') || '[]')
+             const s = sessions.find((x: any) => x.id === props.sessionId)
+             if (s) {
+                 const config = savedConfigs.value.find(c => c.name === s.name)
+                 if (config) {
+                     // Apply Config
+                     if (config.params) searchParams.value = { ...searchParams.value, ...config.params }
+                     if (config.stepSize) stepSize.value = config.stepSize
+                     if (config.refreshInterval) refreshInterval.value = config.refreshInterval
+                     if (config.monitorInterval) monitorInterval.value = config.monitorInterval
+                     if (config.isAutoStep !== undefined) isAutoStep.value = config.isAutoStep
+                     if (config.buyAddresses) buyAddresses.value = config.buyAddresses
+                     if (config.sellAddresses) sellAddresses.value = config.sellAddresses
+                     if (config.notifyForm) notifyForm.value = config.notifyForm
+                     console.log('Auto-loaded config via Session Name:', s.name)
+                 }
+             }
+          } catch(e) { console.error('Auto-load config failed', e) }
+      }, 100)
   }
 
   if (dataStr) {

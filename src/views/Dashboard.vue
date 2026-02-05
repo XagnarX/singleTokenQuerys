@@ -20,17 +20,17 @@
           <icon-delete />
         </div>
         <div class="cell-content">
-          <div class="token-name">{{ session.tokenMark || 'Unknown Token' }}</div>
+          <div class="token-name">{{ session.contractAddress || session.tokenMark || 'No Address' }}</div>
           <a-divider style="margin: 12px 0; border-color: rgba(255,255,255,0.2);" />
           
           <div class="stat-row">
-            <span class="label">笔数 (Count):</span>
-            <span class="value text-highlight-red">{{ session.count || 0 }}</span>
+            <span class="label">收到 (Received):</span>
+            <span class="value text-highlight-red">{{ session.buyCount || 0 }}</span>
           </div>
           
           <div class="stat-row">
-            <span class="label">总金额 (Total):</span>
-            <span class="value">{{ formatAmount(session.totalAmount) }}</span>
+            <span class="label">支出 (Sent):</span>
+            <span class="value">{{ session.sellCount || 0 }}</span>
           </div>
         </div>
       </div>
