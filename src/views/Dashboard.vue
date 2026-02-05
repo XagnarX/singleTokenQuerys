@@ -32,6 +32,11 @@
             <span class="label">支出 (Sent):</span>
             <span class="value">{{ session.sellCount || 0 }}</span>
           </div>
+          
+          <div class="stat-row">
+            <span class="label">总金额 (Total Amount):</span>
+            <span class="value">{{ formatAmount(session.totalAmount) }}</span>
+          </div>
         </div>
       </div>
     </div>
